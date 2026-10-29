@@ -32,10 +32,10 @@ _Avoid_: Settings window, dialog
 The sample code in the Menu that is reformatted at once when an option changes.
 
 **Core**:
-The codestyle.nvim plugin itself: the Menu, the Code Style storage, and the contract that Language Plugins implement.
+The codestyle.nvim plugin itself: the Menu, the Code Style storage, the formatting engine, and the contract that Language Plugins implement.
 
 **Language Plugin**:
-A separate Neovim plugin that supplies one language's Tabs, Options, Preview samples, and formatting to the Core.
+A separate Neovim plugin that supplies one language's Tabs, Options, Preview samples, and formatting rules to the Core.
 _Avoid_: Language module, provider
 
 **Preset**:
