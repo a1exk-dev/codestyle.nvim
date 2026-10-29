@@ -6,7 +6,15 @@ A Neovim plugin that edits PhpStorm-style code style settings in a menu with a l
 
 **Code Style**:
 The complete set of option values that decides how code is formatted.
-_Avoid_: Settings, config
+_Avoid_: Settings, config, scheme
+
+**Global Code Style**:
+The user's own Code Style, used for every buffer that has no Project Code Style.
+_Avoid_: Default scheme, IDE scheme
+
+**Project Code Style**:
+The Code Style committed at the root of one repository and shared by everyone who works in it. It replaces the Global Code Style completely.
+_Avoid_: Project scheme, local config
 
 **Option**:
 One configurable item of a Code Style with a value, such as "Wrap if long" for method parameters.
@@ -44,3 +52,6 @@ The PhpStorm 2026.2.3 Code Style reference in `~/Projects/phpstorm-editorconfig/
 
 **Behaviour Record**:
 A Research Corpus entry with PhpStorm's formatter output for one option and value on targeted inputs. Our formatter's output must match it.
+
+**Scheme XML**:
+PhpStorm's own file format for a Code Style, such as `.idea/codeStyles/Project.xml`. It is the only PhpStorm format we import.
