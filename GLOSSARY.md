@@ -17,12 +17,16 @@ The Code Style committed at the root of one repository and shared by everyone wh
 _Avoid_: Project scheme, local config
 
 **Option**:
-One configurable item of a Code Style with a value, such as "Wrap if long" for method parameters.
-_Avoid_: Setting
+One item of a Code Style that the user sets, with one typed value, such as how method parameters wrap. One Option can stand for several PhpStorm fields, for example one choice of upper or lower case for the two PhpStorm case flags.
+_Avoid_: Setting, field (reserved for PhpStorm's stored items)
 
 **Tab**:
 One page of a language's options in the Menu, such as Tabs and Indents, Spaces, or Wrapping and Braces.
 _Avoid_: Section (reserved for an `.editorconfig` glob block such as `[*.php]`)
+
+**Group**:
+A labelled set of Options inside a Tab, such as "Keep maximum blank lines". A Group can have an Option of its own, such as a wrap choice whose children are its alignment Options.
+_Avoid_: Section, category
 
 **Menu**:
 The Code Style editor inside Neovim: the language list, each language's Tabs, and the Preview.
