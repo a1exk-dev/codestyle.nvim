@@ -49,6 +49,22 @@ _Avoid_: Language module, provider
 **Preset**:
 A named set of option values ("Set from…", such as PSR-12) that is applied over a language's Code Style in one step.
 
+**Block**:
+A part of a file that the formatter places as one unit. Formatting changes only the Gaps between Blocks.
+_Avoid_: Node (reserved for an item of a Tree-sitter parse tree)
+
+**Gap**:
+The whitespace between two adjacent Blocks. The lowest Block that holds both of them owns the Gap.
+_Avoid_: Whitespace token
+
+**Host Language**:
+The language of a file that also contains code of another language, such as PHP or Twig around HTML.
+_Avoid_: Outer language, template language
+
+**Embedded Language**:
+The language of code inside a file of a Host Language, such as the HTML in a PHP or Twig file.
+_Avoid_: Injected language, inner language, template data language
+
 **Arrangement**:
 The reordering of code elements (class members, attributes, CSS properties) by matching rules, separate from formatting options.
 _Avoid_: Rearrange, sorting
