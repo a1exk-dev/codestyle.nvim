@@ -35,6 +35,10 @@ _Avoid_: Settings window, dialog
 **Preview**:
 The sample code in the Menu that is reformatted at once when an option changes.
 
+**Draft**:
+The changes made in the Menu that are not saved yet. The Preview shows them at once, but no file or real buffer gets them until the user saves.
+_Avoid_: Pending changes, unsaved settings
+
 **Core**:
 The codestyle.nvim plugin itself: the Menu, the Code Style storage, the formatting engine, and the contract that Language Plugins implement.
 
