@@ -181,6 +181,20 @@ function V.open(app)
       V.render()
     end,
   })
+  -- A dialog keeps the focus: entering a normal window behind it returns to the Options.
+  api.nvim_create_autocmd("WinEnter", {
+    group = S.group,
+    callback = function()
+      local w = api.nvim_get_current_win()
+      if api.nvim_win_get_config(w).relative == "" and api.nvim_win_is_valid(S.opts) then
+        vim.schedule(function()
+          if S.opts and api.nvim_win_is_valid(S.opts) then
+            api.nvim_set_current_win(S.opts)
+          end
+        end)
+      end
+    end,
+  })
   api.nvim_create_autocmd("WinClosed", {
     group = S.group,
     callback = function(ev)

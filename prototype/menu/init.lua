@@ -7,4 +7,17 @@ for name in pairs(package.loaded) do
     package.loaded[name] = nil
   end
 end
-require("codestyle_proto").open(tonumber(vim.g.codestyle_proto_variant) or 1)
+local function open()
+  require("codestyle_proto").open(tonumber(vim.g.codestyle_proto_variant) or 1)
+end
+-- With `nvim -c`, wait until startup ends, so a start screen (e.g. LazyVim's dashboard) cannot take the focus.
+if vim.v.vim_did_enter == 1 then
+  open()
+else
+  vim.api.nvim_create_autocmd("VimEnter", {
+    once = true,
+    callback = function()
+      vim.defer_fn(open, 200)
+    end,
+  })
+end
