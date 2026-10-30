@@ -47,7 +47,8 @@ A separate Neovim plugin that supplies one language's Tabs, Options, Preview sam
 _Avoid_: Language module, provider
 
 **Preset**:
-A named set of option values ("Set from…", such as PSR-12) that is applied over a language's Code Style in one step.
+A named set of Option values in one language's "Set from…" list, such as PSR-12, that overwrites those Options in one step. It can also set Options of other languages, and a Code Style never records which Preset was applied.
+_Avoid_: Predefined style, template
 
 **Block**:
 A part of a file that the formatter places as one unit. Formatting changes only the Gaps between Blocks.
