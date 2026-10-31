@@ -66,6 +66,10 @@ _Avoid_: Outer language, template language
 The language of code inside a file of a Host Language, such as the HTML in a PHP or Twig file.
 _Avoid_: Injected language, inner language, template data language
 
+**Embed Point**:
+A place in a Host Language file that the host's Language Plugin marks as code of one Embedded Language, such as a `<script>` body or a Blade `<?php ?>` block.
+_Avoid_: Injection (reserved for Tree-sitter's injection queries), embedded region
+
 **Arrangement**:
 The reordering of code elements (class members, attributes, CSS properties) by matching rules, separate from formatting options.
 _Avoid_: Rearrange, sorting
