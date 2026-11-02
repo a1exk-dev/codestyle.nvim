@@ -34,7 +34,7 @@ Arrangement has one shape in all eight PhpStorm rearrangers: rule aliases, "Keep
 
 ## Consequences
 
-- **The spec** (data, ADR-0007) gets an `arrangement` table: the entry types, modifiers and Keep-Together kinds, whether `name` and `namespace` apply, the default Arrangement, and a `phpstorm` map from PhpStorm token ids to its own ids (`FIELD = 'field'`). So reading the file and opening the Menu load no code.
+- **The spec** (data, ADR-0007) gets an `arrangement` table: the entry types, modifiers and Keep-Together kinds, whether `name` and `namespace` apply, the default Arrangement, and a `phpstorm` map from PhpStorm token ids to its own ids (`FIELD = 'field'`). The Menu's Arrangement editor reads it too (ADR-0012). So reading the file and opening the Menu load no code.
 - **The `arrangement` module** (code) has `entries(ctx)`, which returns a tree of Arrangement Entries made with Core constructors: range (with the comments and doc blocks that travel with the entry), types, modifiers, name, namespace, children, and the links that Keep-Together Rules need (getter/setter pairs, calls). An optional `blank_lines` is the port of IntelliJ's `getBlankLines`.
 - **Format runs:** while `enabled` is true, every format run rearranges first (ADR-0002). `:Codestyle arrange` always rearranges. `codestyle.testing` turns Arrangement off for the formatter Behaviour Records, which PhpStorm's command-line formatter made without rearranging.
 - **Selection:** only entries that intersect `ctx.range` take part, and they move only among themselves (IntelliJ's `isWithinBounds`). No Behaviour Record tests this.
