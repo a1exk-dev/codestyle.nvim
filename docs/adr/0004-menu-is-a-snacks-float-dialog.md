@@ -12,5 +12,5 @@ The Menu is a modal dialog, like PhpStorm's Settings dialog: three floats over a
 ## Consequences
 
 - Every user installs snacks.nvim. Like the parsers, it is a Neovim plugin, so the rule "nothing outside Neovim, Neovim plugins and Lua" holds.
-- The Menu still renders each pane as a scratch buffer drawn from a view model. Option labels are buffer text, so `/` finds them. `vim.ui.select` and `vim.ui.input` route to the user's own picker.
+- The Menu still renders each pane as a scratch buffer drawn from a view model. Option labels are buffer text, so `/` finds them. `vim.ui.select` and `vim.ui.input` route to the user's own picker. A multi-select (the Arrangement token sets) uses `snacks.picker`, and the Arrangement Tab has its own rows and keys (ADR-0012).
 - Users with 0.11 get parsers from nvim-treesitter's locked `master` branch. The engine uses only Tree-sitter APIs that 0.11 has.
