@@ -1,0 +1,25 @@
+# Real buffers format through one Core API, with a key, gq and a conform adapter
+
+Every way to format a real buffer calls one Core function, `require('codestyle').format{ buf, range }`. The Core writes only the changed text, as one undo step (ADR-0002), so it needs no other plugin. On top of it, the Core ships a default key, a `formatexpr` for `gq`, the `:Codestyle format` command, and a formatter for conform.nvim. The Core has no format-on-save hook of its own. LazyVim formats on save by default through conform, and conform's own `format_on_save` covers other setups, so a second hook from us would format the buffer twice ("How does a user format a real buffer?", #37, with the facts of #36).
+
+## Considered Options
+
+- **conform.nvim only.** conform already writes only changed text, but it would become a required dependency. For a Lua formatter, its ranges are "best effort": it formats the whole buffer and drops the changes outside the range.
+- **Our own triggers only, with no conform adapter.** LazyVim and kickstart.nvim route their keys and format on save through conform, so their users would have to write the adapter themselves.
+- **A built-in format-on-save hook**, on or off by default. Rejected: LazyVim already owns the save hook, and two hooks format twice. Users without LazyVim or conform add a one-line `BufWritePre` autocmd that the docs show.
+- **Columns for a charwise Visual selection.** Rejected: `gq`, `formatexpr`, commands and conform pass whole lines, and two meanings of a range would need their own tests and docs.
+- **Falling back to conform or LSP formatting when no Language Plugin claims the buffer.** Rejected: our key would then mean something different in each buffer.
+
+## Consequences
+
+- **Selection:** every range is whole lines, from every entry point. The engine changes only the Gaps inside those lines, including each line's leading indent. A charwise Visual selection counts as linewise, and a blockwise one is refused with a notice. The Shell Script family map decides what a selection does for `shfmt`.
+- **Key:** `<Plug>(codestyle-format)` in Normal mode (the whole buffer) and Visual mode (the selection). The Core maps `<leader>cf` to it unless the key is already mapped or `setup{ keys = false }`. `<leader>cf` is LazyVim's "code format" key, which reaches us through conform there.
+- **`gq`:** on `FileType`, for a buffer that a Language Plugin claims, the Core sets `formatexpr` to `require('codestyle').formatexpr()`, unless the user or another plugin has already set it. So LazyVim's conform `formatexpr` stays, and Neovim does not replace ours when an LSP server attaches, because it replaces only an empty value or one set by its runtime files. In Insert and Replace mode the function returns 1, so Neovim still wraps text at `textwidth`.
+- **Command:** `:[range]Codestyle format`. With no range it formats the whole buffer. Arrangement runs first while it is enabled (ADR-0011).
+- **conform adapter:** when conform is loaded, the Core adds `codestyle` to `require('conform').formatters`, with a `condition` that is true only when a Language Plugin claims the buffer and its parser (or `shfmt`) is present. The Core never edits `formatters_by_ft`. The docs recommend `['*'] = { 'codestyle' }`, because a v1 language spans many Neovim filetypes and `match(buf)` can claim a buffer with no filetype (#41). The adapter formats the `lines` it gets, because an earlier formatter in the chain may have changed them, and it passes `ctx.range` to the engine as lines. So conform's range filter drops nothing.
+- **No Language Plugin** claims the buffer: the key and the command give one WARN notice that names the filetype, and the buffer stays as it was. `gq` keeps the user's behaviour, because `formatexpr` is set only for claimed buffers.
+- **Missing parser or `shfmt`:** nothing is formatted, with one WARN per buffer and language that says what to install, the same rule as ADR-0008. The conform adapter reports itself unavailable, so conform can fall back to LSP (`lsp_format = 'fallback'`) or show its own warning.
+- **Syntax errors** give no notice. The parts are kept as ADR-0002 says, and the user's diagnostics already show the error.
+- **`:checkhealth codestyle`** lists, for each open buffer that a Language Plugin claims: missing parsers, the other conform formatters for its filetype, the attached LSP clients that can format, and Neovim's editorconfig `trim_trailing_whitespace` when "Keep indents on empty lines" is on. That trim runs on save and strips those indents, and PhpStorm treats it as a save action, not a Code Style Option. The Core changes no other plugin's config and leaves editorconfig alone.
+- **Code Style:** a real buffer is always formatted with the saved Code Style, the Project Code Style or else the Global one (ADR-0001), never with the Draft. Saving in the Menu does not reformat open buffers.
+- **Speed:** every run is synchronous, and there is no file-size limit. "What latency budget does the Preview keep when an Option changes?" (#38) also sets a budget for a large real file.
