@@ -74,6 +74,18 @@ _Avoid_: Injection (reserved for Tree-sitter's injection queries), embedded regi
 The reordering of code elements (class members, attributes, CSS properties) by matching rules, separate from formatting options.
 _Avoid_: Rearrange, sorting
 
+**Arrangement Entry**:
+One code element that Arrangement can move as a unit, such as a class member, a tag, an attribute, or a CSS declaration.
+_Avoid_: Block (reserved for formatting), member
+
+**Slot**:
+One place in the ordered list of an Arrangement. It holds matching rules, and each Arrangement Entry goes to the first Slot with a rule that matches it.
+_Avoid_: Section (reserved for an `.editorconfig` glob block)
+
+**Keep-Together Rule**:
+An Arrangement setting that keeps related Arrangement Entries next to each other, such as getters with their setters or a method with the methods it calls.
+_Avoid_: Grouping, Group (reserved for the Menu)
+
 ## Reference
 
 **Research Corpus**:

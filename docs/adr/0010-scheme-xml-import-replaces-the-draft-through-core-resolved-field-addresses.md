@@ -30,7 +30,7 @@ A Scheme XML import writes into the Draft of the Code Style that is being edited
 - **`general`:** the Core owns the mapping of `general` (`root:` and `other_indent:`).
 - **No PhpStorm legacy migrations:** an old or renamed field counts as unknown, and `version` attributes are ignored. `codestyle.testing` translates the Research Corpus's `scheme_xml_location` into these addresses.
 - **Languages with no installed plugin:** their fields are skipped, including those of the languages left out of v1 (ADR-0009). To get them, the user installs the plugin and imports again. The values of such a language that are already stored stay as they are (ADR-0001), and the report says that they were not updated.
-- **Arrangement:** the Core passes each language's parsed `<arrangement>` element to that plugin's `arrangement` module. Its result belongs to the Arrangement design. A language whose XML has no `<arrangement>` gets the default Arrangement.
+- **Arrangement:** the Core converts each language's `<arrangement>` element through the token map in that plugin's spec, and it lists what it cannot import in the report (ADR-0011). A language whose XML has no `<arrangement>` gets the default Arrangement.
 - **The report:** one `vim.notify` line gives the totals. `R` in the Menu opens the full report in a scratch buffer. For each language, it lists:
   - the imported values;
   - the fields of Options that v1 leaves out;
