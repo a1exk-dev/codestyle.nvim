@@ -46,6 +46,10 @@ The codestyle.nvim plugin itself: the Menu, the Code Style storage, the formatti
 A separate Neovim plugin that supplies one language's Tabs, Options, Preview samples, and formatting rules to the Core.
 _Avoid_: Language module, provider
 
+**Flagged Option**:
+An Option that a Language Plugin offers although its output does not match all of its Behaviour Records. The Menu marks it, and its tests are expected to fail.
+_Avoid_: Approximate option, partial option
+
 **Preset**:
 A named set of Option values in one language's "Set from…" list, such as PSR-12, that overwrites those Options in one step. It can also set Options of other languages, and a Code Style never records which Preset was applied.
 _Avoid_: Predefined style, template
