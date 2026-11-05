@@ -35,7 +35,7 @@ Plugin repos follow the Core's process: Git Flow with `develop` and `main`, and 
 
 - **A generator in the Core**, or **the JSON plugin as the only example**. Rejected: a third party would need the Core checked out, and an example mixes JSON details into the shared layout.
 - **Records converted to our own format**, or **the corpus published and fetched by CI**. Rejected: a converter must be right before any test means anything and leaves the `scheme` mapping untested, and publishing makes the 140 MB corpus a public interface that every CI run downloads.
-- **busted or mini.test.** Rejected: luarocks or a test-only dependency, and `codestyle.testing` already runs the cases.
+- **busted or mini.test.** Rejected: luarocks or a test-only dependency, and `codestyle.testing` already runs the cases. The Core itself uses mini.test for its Menu screenshots (ADR-0017).
 - **The newest parsers, or the developer's own setup.** Rejected: a red run could come from an upstream grammar or from one developer's machine, not from the change.
 - **A spec regenerated from the corpus plus an overrides file.** Rejected: hand decisions would live in a layer that is harder to read than the spec.
 - **PhpStorm's Preview samples as they are.** Rejected: the public repos would carry closed-source JetBrains text.
