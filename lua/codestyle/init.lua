@@ -26,4 +26,10 @@ function M.format(opts)
   require('codestyle.instance').get().format(opts)
 end
 
+--- The `formatexpr` that the Core sets on claimed buffers, for `gq` (ADR-0014).
+---@return integer
+function M.formatexpr()
+  return require('codestyle.instance').get().formatexpr.call()
+end
+
 return M

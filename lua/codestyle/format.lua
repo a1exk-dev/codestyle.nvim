@@ -7,6 +7,18 @@
 
 ---@class codestyle.FormatApi
 ---@field format fun(opts?: codestyle.FormatOpts)
+--- Formats the lines of the current Visual selection, then ends Visual mode.
+--- A charwise selection counts as linewise; a blockwise one is refused.
+---@field format_selection fun()
+--- True when a Language Plugin claims the buffer, even if its parser is
+--- missing. It gives no notice.
+---@field claimed fun(buf: integer): boolean
+--- True when a Language Plugin claims the buffer and its parser is installed.
+--- It gives no notice.
+---@field can_format fun(buf: integer): boolean
+--- Formats lines that stand for the buffer's text, such as the output of an
+--- earlier conform formatter. Returns the new lines, or nil and why not.
+---@field format_lines fun(buf: integer, lines: string[], range?: integer[]): string[]?, string?
 
 local M = {}
 
@@ -45,37 +57,77 @@ end
 ---@param deps { notices: codestyle.Notices, selector: codestyle.Selector, store: codestyle.Store, format_run: codestyle.FormatRun }
 ---@return codestyle.FormatApi
 function M.new(deps)
+  --- One format run of these lines of the buffer, with its notices.
+  ---@param buf integer
+  ---@param lines string[]
+  ---@param range? integer[]
+  ---@return codestyle.FormatResult?
+  ---@return string? message why nothing is formatted
+  local function run(buf, lines, range)
+    deps.notices.begin_run()
+    local choice, no_choice = deps.selector.choose(buf)
+    if not choice then
+      ---@cast no_choice codestyle.NoChoice
+      report_no_choice(deps.notices, buf, no_choice)
+      return nil, no_choice.message
+    end
+    local code_style = deps.store.for_buffer(buf)
+    if not code_style then
+      return nil, 'the Code Style file of this buffer is broken; see the error above'
+    end
+    local result = deps.format_run.run({
+      lines = lines,
+      language = choice.language,
+      parser = choice.parser,
+      code_style = code_style,
+      range = range and { start_row = range[1] - 1, end_row = range[2] - 1 },
+    })
+    for _, notice in ipairs(result.notices) do
+      deps.notices.report(notice.level, notice.scope, notice.key, notice.message)
+    end
+    return result
+  end
+
   ---@type codestyle.FormatApi
-  return {
+  local api
+  api = {
+    claimed = function(buf)
+      local choice, no_choice = deps.selector.choose(buf)
+      return choice ~= nil or (no_choice --[[@as codestyle.NoChoice]]).reason == 'no_parser'
+    end,
+    format_selection = function()
+      local mode = vim.fn.mode()
+      local first, last = vim.fn.line('v'), vim.fn.line('.')
+      vim.api.nvim_feedkeys(vim.keycode('<Esc>'), 'nx', false)
+      if mode == '\22' then
+        deps.notices.begin_run()
+        deps.notices.report(
+          vim.log.levels.WARN,
+          'run',
+          'blockwise',
+          'a blockwise selection cannot be formatted; select whole lines with V'
+        )
+        return
+      end
+      api.format({ buf = 0, range = { math.min(first, last), math.max(first, last) } })
+    end,
     format = function(opts)
       opts = opts or {}
       local buf = (opts.buf == nil or opts.buf == 0) and vim.api.nvim_get_current_buf() or opts.buf --[[@as integer]]
-      deps.notices.begin_run()
-
-      local choice, no_choice = deps.selector.choose(buf)
-      if not choice then
-        report_no_choice(deps.notices, buf, no_choice --[[@as codestyle.NoChoice]])
-        return
+      local result = run(buf, vim.api.nvim_buf_get_lines(buf, 0, -1, true), opts.range)
+      if result then
+        apply(buf, result.edits)
       end
-
-      local code_style = deps.store.for_buffer(buf)
-      if not code_style then
-        return
-      end
-
-      local result = deps.format_run.run({
-        lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true),
-        language = choice.language,
-        parser = choice.parser,
-        code_style = code_style,
-        range = opts.range and { start_row = opts.range[1] - 1, end_row = opts.range[2] - 1 },
-      })
-      for _, notice in ipairs(result.notices) do
-        deps.notices.report(notice.level, notice.scope, notice.key, notice.message)
-      end
-      apply(buf, result.edits)
+    end,
+    can_format = function(buf)
+      return deps.selector.choose(buf) ~= nil
+    end,
+    format_lines = function(buf, lines, range)
+      local result, message = run(buf, lines, range)
+      return result and result.lines, message
     end,
   }
+  return api
 end
 
 return M

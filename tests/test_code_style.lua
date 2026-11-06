@@ -116,7 +116,7 @@ T['Option types']['values of all six types are read'] = function()
 
   expect.equality(values, {
     spaces = { around_assignment = true },
-    indent = { size = 2 },
+    indent = { size = 2, keep_on_empty_lines = false },
     wrap = { call_arguments = 'chop_down', hard_wrap_at = 80, visual_guides = { 80, 100 } },
     comments = { todo = 'FIXME' },
     names = { globals = { 'vim', 'describe' } },
@@ -144,7 +144,7 @@ T['Option types']['each invalid value gives one WARN per file, and the default i
 
   expect.equality(values, {
     spaces = { around_assignment = false },
-    indent = { size = 4 },
+    indent = { size = 4, keep_on_empty_lines = false },
     wrap = { call_arguments = 'off', hard_wrap_at = 120, visual_guides = {} },
     comments = { todo = 'TODO' },
     names = { globals = { 'vim' } },

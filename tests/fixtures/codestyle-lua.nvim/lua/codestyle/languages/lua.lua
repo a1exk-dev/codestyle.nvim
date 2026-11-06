@@ -31,6 +31,7 @@ return {
       default = false,
       label = 'Use double quotes',
     },
+    { key = 'indent.keep_on_empty_lines', type = 'boolean', default = false, label = 'Keep indents on empty lines' },
     { key = 'indent.size', type = 'integer', min = 0, max = 32, default = 4, label = 'Indent' },
     {
       key = 'wrap.call_arguments',
@@ -73,5 +74,6 @@ return {
     { key = 'spaces.assign', to = 'spaces.around_assignment' },
     { key = 'wrap.call_arguments', choice = 'chop', to = 'chop_down' },
   },
+  keep_indents_on_empty_lines = 'indent.keep_on_empty_lines',
   formatter = 'codestyle.languages.lua.formatter',
 }
