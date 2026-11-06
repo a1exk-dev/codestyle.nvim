@@ -470,8 +470,20 @@ T['sources']['Project.xml is used when the repo has it, and the component is unw
   )
   local other = write_xml(scheme({ '  <option name="RIGHT_MARGIN" value="70" />' }))
   local report = assert(import({ root = child.paths.repo, path = other }))
-  expect.equality(report.source, child.paths.repo .. '/.idea/codeStyles/Project.xml')
+  local project = child.paths.repo .. '/.idea/codeStyles/Project.xml'
+  expect.equality(report.source, project)
   expect.equality(stored(), { general = { hard_wrap_at = 90 } })
+  -- The user is told once that the path they gave was not used.
+  local warning = {
+    level = H.levels.WARN,
+    message = ('codestyle: %s was not imported: the repo has %s, which an import always uses'):format(other, project),
+  }
+  expect.equality(child:notices()[1], warning)
+  import({ root = child.paths.repo, path = other })
+  local warnings = vim.tbl_filter(function(notice)
+    return notice.level == H.levels.WARN
+  end, child:notices())
+  expect.equality(warnings, { warning })
 end
 
 T['sources']['else the given path; codeStyleConfig.xml is never read'] = function()

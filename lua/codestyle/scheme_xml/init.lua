@@ -27,13 +27,21 @@ local reader = require('codestyle.scheme_xml.reader')
 --- `codeStyleConfig.xml` and IDE scheme folders are never read.
 ---@field source fun(root?: string, path?: string): string?, string? nil and why when there is none
 --- Imports into the Draft as one step. `root` is the repo root to look for `Project.xml` in, by default the
---- Draft's. Nil and the message (also given as an ERROR) when nothing was imported.
+--- Draft's. Nil and the message (also given as an ERROR) when nothing was imported. A given `path` that
+--- `Project.xml` wins over gives one WARN per session.
 ---@field import fun(draft: codestyle.Draft, opts?: { root?: string, path?: string }): codestyle.ImportReport?, string?
 
 local M = {}
 
 --- Where PhpStorm keeps a project's own Scheme XML, from the repo root.
 M.project_xml = '.idea/codeStyles/Project.xml'
+
+--- The absolute path of a path that the user typed.
+---@param path string
+---@return string
+local function absolute(path)
+  return vim.fs.normalize(vim.fn.fnamemodify(vim.fn.expand(path), ':p'))
+end
 
 ---@param deps { importer: codestyle.SchemeImporter, notices: codestyle.Notices }
 ---@return codestyle.SchemeXml
@@ -48,7 +56,7 @@ function M.new(deps)
       return project
     end
     if path then
-      return vim.fs.normalize(vim.fn.fnamemodify(vim.fn.expand(path), ':p'))
+      return absolute(path)
     end
     return nil,
       ('no Scheme XML to import: %s does not exist and no path was given'):format(
@@ -65,6 +73,16 @@ function M.new(deps)
     local path, missing = source(opts.root or draft.root, opts.path)
     if not path then
       return nil, missing
+    end
+    local given = opts.path and absolute(opts.path)
+    if given and given ~= path then
+      -- ADR-0010's order stands, but the user learns once why their file was not read.
+      deps.notices.report(
+        vim.log.levels.WARN,
+        'session',
+        'import:' .. given,
+        ('%s was not imported: the repo has %s, which an import always uses'):format(given, path)
+      )
     end
     local file, open_error = io.open(path, 'rb')
     if not file then
