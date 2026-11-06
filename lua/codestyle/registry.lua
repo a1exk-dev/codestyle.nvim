@@ -6,6 +6,7 @@
 ---@alias codestyle.SpecPart
 ---| 'formatter' the module that `spec.formatter` names
 ---| 'exports' the module that `spec.exports.module` names, or `{}` when it names none
+---| 'arrangement' the module that `spec.arrangement.module` names
 
 ---@alias codestyle.StatusKind
 ---| 'ok'
@@ -164,6 +165,9 @@ function M.new(deps)
       if part == 'exports' then
         local module = spec.exports and spec.exports.module
         return module and require(module) or {}
+      end
+      if part == 'arrangement' then
+        return require(spec.arrangement.module)
       end
       return require(spec[part])
     end,

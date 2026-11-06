@@ -8,6 +8,7 @@
 -- Spacing, and each Block's indent Options are resolved per Block.
 
 local merge = require('codestyle.engine.merge')
+local parts_of = require('codestyle.parts')
 local read_only = require('codestyle.read_only')
 local layout = require('codestyle.engine.layout')
 local right_margin = require('codestyle.engine.right_margin')
@@ -127,31 +128,6 @@ end
 ---@field indent codestyle.IndentOptions resolved for the Block (ADR-0008)
 ---@field margin integer
 
---- The text of the lines with every byte outside the ranges turned into a
---- space, so an embedded plugin sees only its parts at their positions.
----@param lines string[]
----@param ranges integer[][]
----@return string
-local function mask(lines, ranges)
-  local masked = {}
-  for row, line in ipairs(lines) do
-    masked[row] = (' '):rep(#line)
-  end
-  for _, range in ipairs(ranges) do
-    for row = range[1], range[3] do
-      local line = lines[row + 1]
-      if line then
-        local start_col = row == range[1] and range[2] or 0
-        local end_col = row == range[3] and math.min(range[4], #line) or #line
-        masked[row + 1] = masked[row + 1]:sub(1, start_col)
-          .. line:sub(start_col + 1, end_col)
-          .. masked[row + 1]:sub(end_col + 1)
-      end
-    end
-  end
-  return table.concat(masked, '\n')
-end
-
 --- The range without the whitespace at its ends, or nil when it holds none.
 ---@param lines string[]
 ---@param range integer[]
@@ -262,19 +238,14 @@ function M.layout(ctx, languages)
   ---@return codestyle.FormatContext
   local function embedded_context(language, ranges, fragment)
     local parser = language.parser --[[@as string]]
-    -- One region of all the parts: a combined parse that sees only their text,
-    -- with the positions of the whole text, as an injection (ADR-0008).
-    local tree = vim.treesitter.get_string_parser(ctx.source, parser)
-    ---@diagnostic disable-next-line: invisible
-    tree:set_included_regions({ vim.deepcopy(ranges) })
-    local root = tree:parse(true)[1]:root()
+    local root = parts_of.parse(ctx.source, parser, ranges)
     broken_parts(root, parts)
     return {
       language = language.id,
       parser = parser,
       root = root,
       -- The plugin sees only the text of the parts.
-      source = mask(lines, ranges),
+      source = parts_of.mask(lines, ranges),
       values = language.values,
       uses = language.uses,
       range = ctx.range,

@@ -5,6 +5,7 @@
 -- whole: no buffer of that scope is formatted, because falling back to the
 -- defaults would rewrite the whole file (#50 New decisions).
 
+local arrangement = require('codestyle.arrangement')
 local code_style = require('codestyle.code_style')
 local general = require('codestyle.general')
 local json = require('codestyle.json')
@@ -115,8 +116,9 @@ end
 
 --- The file content to write (ADR-0001, ADR-0003): a valid value that equals
 --- its Option's default is left out, and so is each object that this leaves
---- empty. Invalid values, unknown keys, unknown languages and the reserved
---- `arrangement` key stay as they are. A value of an Option that inherits is
+--- empty. Invalid values, unknown keys and unknown languages stay as they
+--- are. The reserved `arrangement` key is left out only when it is valid and
+--- the same as the default (ADR-0011). A value of an Option that inherits is
 --- kept, because it was set.
 ---@param raw codestyle.StoredFile
 ---@param registry codestyle.Registry
@@ -133,6 +135,12 @@ local function minimal(raw, registry)
         local value = tree.get(stored, path)
         if value ~= nil and not option.inherit and vim.deep_equal(schema.check(option, value), option.default) then
           tree.remove(stored, path)
+        end
+      end
+      if spec.arrangement and stored.arrangement ~= nil then
+        local valid, problem = arrangement.validate(spec.arrangement, stored.arrangement)
+        if not problem and vim.deep_equal(valid, arrangement.validate(spec.arrangement, nil)) then
+          stored.arrangement = nil
         end
       end
       if next(stored) == nil then

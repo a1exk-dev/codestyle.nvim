@@ -63,6 +63,33 @@
 ---@field tabs? codestyle.Tab[] the Menu's Tabs of the language, in order; without them the Menu shows one Tab with every Option
 ---@field syntax? string the Vim `syntax` that highlights the Preview when no parser of `parsers.default` is installed
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
+---@field arrangement? codestyle.ArrangementSpec the Arrangement vocabulary and default; nil when the language has none (ADR-0011)
+
+--- The Arrangement data of a spec (ADR-0011). Reading it loads no code.
+---@class codestyle.ArrangementSpec
+---@field module string the module path of the `codestyle.ArrangementModule`, required on first use
+---@field types string[] the entry type tokens, such as `field` and `method`
+---@field modifiers? string[] the modifier tokens, such as `static`
+---@field keep_together? table<string, string[]> each Keep-Together kind → its orders, the first one the default; `depth_first` and `breadth_first` walk the links, others group one level
+---@field name? boolean rules may have a `name` regex
+---@field namespace? boolean rules may have a `namespace` regex
+---@field default codestyle.Arrangement used when none is stored, or the stored one is invalid
+---@field phpstorm? table<string, string> PhpStorm's token ids → this spec's tokens, for the Scheme XML import
+
+--- The `arrangement` module of a Language Plugin (ADR-0011).
+---@class codestyle.ArrangementModule
+--- The tree of Arrangement Entries of `ctx.root` (`require('codestyle.arrangement_entry')`).
+---@field entries fun(ctx: codestyle.ArrangementContext): codestyle.ArrangementEntry[]
+--- The blank lines between two neighbours that Arrangement put next to each other, as IntelliJ's
+--- `getBlankLines`; nil or negative keeps the gap as it was. Only gaps of whitespace change.
+---@field blank_lines? fun(previous: codestyle.ArrangementEntry, entry: codestyle.ArrangementEntry, values: codestyle.Values): integer?
+
+--- What the Core passes to `entries`: the format run's `ctx` and the Arrangement.
+---@class codestyle.ArrangementContext: codestyle.FormatContext
+---@field arrangement codestyle.Arrangement the Arrangement of this run, for lookups that only some rules need
+--- Asks a LSP client of the buffer, within the run's time budget: the result, or nil with one warning per
+--- run (no client, an unsupported method, a timeout). Use it for parents in other files (`overridden`).
+---@field lsp codestyle.Lsp
 
 --- One page of a language's Options in the Menu (ADR-0004, ADR-0007). Tabs
 --- only show the Options: the stored keys never name a Tab (ADR-0003).

@@ -155,4 +155,26 @@ return {
   },
   syntax = 'lua',
   formatter = 'codestyle.languages.lua.formatter',
+  -- The members of a module table, the table that the chunk returns (ADR-0011).
+  arrangement = {
+    module = 'codestyle.languages.lua.arrangement',
+    types = { 'field', 'function', 'method' },
+    -- `private`: the name starts with `_`; `metamethod`: with `__`;
+    -- `overridden`: a parent that the LSP names has a member of that name.
+    modifiers = { 'private', 'metamethod', 'overridden' },
+    keep_together = {
+      getters_setters = { 'keep' },
+      dependent_methods = { 'depth_first', 'breadth_first' },
+      overridden_methods = { 'keep', 'by_name' },
+    },
+    name = true,
+    namespace = true,
+    default = {
+      enabled = true,
+      aliases = {},
+      keep_together = { { kind = 'getters_setters', order = 'keep' } },
+      slots = { { { is = { 'field' } } }, { { is = { 'function' } } }, { { is = { 'method' } } } },
+    },
+    phpstorm = { FIELD = 'field', FUNCTION = 'function', METHOD = 'method' },
+  },
 }
