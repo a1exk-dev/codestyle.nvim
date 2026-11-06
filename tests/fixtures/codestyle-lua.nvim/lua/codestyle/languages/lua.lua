@@ -155,6 +155,7 @@ return {
   },
   syntax = 'lua',
   formatter = 'codestyle.languages.lua.formatter',
+  scheme = 'codestyle.languages.lua.scheme',
   -- The members of a module table, the table that the chunk returns (ADR-0011).
   arrangement = {
     module = 'codestyle.languages.lua.arrangement',
@@ -175,7 +176,16 @@ return {
       keep_together = { { kind = 'getters_setters', order = 'keep' } },
       slots = { { { is = { 'field' } } }, { { is = { 'function' } } }, { { is = { 'method' } } } },
     },
-    phpstorm = { FIELD = 'field', FUNCTION = 'function', METHOD = 'method' },
+    phpstorm = {
+      FIELD = 'field',
+      FUNCTION = 'function',
+      METHOD = 'method',
+      PRIVATE = 'private',
+      OVERRIDDEN = 'overridden',
+      GETTERS_AND_SETTERS = 'getters_setters',
+      DEPENDENT_METHODS = 'dependent_methods',
+      OVERRIDDEN_METHODS = 'overridden_methods',
+    },
     -- The Menu's Arrangement Tab (ADR-0012).
     panel = 'rules',
     labels = {

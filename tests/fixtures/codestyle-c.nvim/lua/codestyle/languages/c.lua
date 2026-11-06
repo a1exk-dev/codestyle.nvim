@@ -15,8 +15,19 @@ return {
       default = false,
       label = 'Assignment operators (=)',
     },
+    -- Read from the fake `lua` blocks of a Scheme XML (`lang:` addresses, ADR-0010).
+    { key = 'embedded.lua_indent', type = 'integer', min = 0, max = 32, default = 4, label = 'Indent of embedded Lua' },
+    {
+      key = 'embedded.lua_margin',
+      type = 'integer',
+      min = 1,
+      max = 1000,
+      default = 120,
+      label = 'Margin of embedded Lua',
+    },
   },
   formatter = 'codestyle.languages.c.formatter',
+  scheme = 'codestyle.languages.c.scheme',
   -- The sort panel of the CSS family (ADR-0012) over the top-level
   -- declarations, which stand for CSS declarations. Off by default, as
   -- PhpStorm's "Sort CSS properties".

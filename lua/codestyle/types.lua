@@ -64,6 +64,32 @@
 ---@field syntax? string the Vim `syntax` that highlights the Preview when no parser of `parsers.default` is installed
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
 ---@field arrangement? codestyle.ArrangementSpec the Arrangement vocabulary and default; nil when the language has none (ADR-0011)
+---@field scheme? string the module path of the `codestyle.Scheme`, required on a Scheme XML import (ADR-0010)
+
+--- The `scheme` module of a Language Plugin (ADR-0007, ADR-0010): the PhpStorm fields that its
+--- Options read. The Core resolves the field addresses and converts the values by Option type.
+--- Field addresses: `common:NAME` and `indent:NAME` (the language's `<codeStyleSettings>` and its
+--- `<indentOptions>`), `custom:NAME` (its own element), `tag:<Element>:NAME` (another element),
+--- `lang:<Language>:common:NAME` and `lang:<Language>:indent:NAME` (another language's block),
+--- `root:NAME` and `other_indent:NAME`.
+---@class codestyle.Scheme
+---@field language string the `language=` attribute of its `<codeStyleSettings>`, such as `PHP`
+---@field element? string its own custom element, such as `PHPCodeStyleSettings`
+---@field entries codestyle.SchemeEntry[]
+---@field left_out? string[] the field addresses of the Options that v1 leaves out, so the report tells them from unknown fields
+
+--- One Option of a `scheme`: the field it reads, or the fields it joins. An absent field, or `-1`,
+--- leaves the Option at its default (ADR-0010).
+---@class codestyle.SchemeEntry
+---@field key string the dotted Option key
+---@field field? string the field address; its text is converted by the Option's type
+---@field values? table<string, string> for a `choice`: PhpStorm's int or enum name → choice id
+---@field fields? string[] with `from`: the field addresses of a join
+--- With `fields`: the Option's value from the fields that are present (address → the `value` text, or the
+--- `<option>` element when it has none); nil leaves the default, nil and a problem marks the fields invalid.
+--- Called only when one of the fields is present.
+---@field from? fun(fields: table<string, string|codestyle.XmlElement>): any, string?
+---@field java_regex_if? string the Core's own: when this field is `true`, the value is a Java regex to convert
 
 --- The Arrangement data of a spec (ADR-0011). Reading it loads no code.
 ---@class codestyle.ArrangementSpec
@@ -74,7 +100,9 @@
 ---@field name? boolean rules may have a `name` regex
 ---@field namespace? boolean rules may have a `namespace` regex
 ---@field default codestyle.Arrangement used when none is stored, or the stored one is invalid
----@field phpstorm? table<string, string> PhpStorm's token ids → this spec's tokens, for the Scheme XML import
+--- PhpStorm's ids of entry types, modifiers and Keep-Together kinds (and of orders, when they differ from
+--- `KEEP`, `BY_NAME`, `DEPTH_FIRST`, `BREADTH_FIRST`) → this spec's tokens, for the Scheme XML import
+---@field phpstorm? table<string, string>
 --- The Menu's editor of the Arrangement Tab (ADR-0012): `rules` (the default) shows rule rows, `sort` the
 --- sort panel of the CSS family (off, by name, custom order) over the same Slot shape.
 ---@field panel? 'rules'|'sort'
