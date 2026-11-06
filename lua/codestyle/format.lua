@@ -3,6 +3,7 @@
 
 ---@class codestyle.FormatOpts
 ---@field buf? integer the buffer, 0 or nil for the current one
+---@field range? integer[] `{ start_line, end_line }`: the whole lines to format, 1-based and inclusive; nil for the whole buffer
 
 ---@class codestyle.FormatApi
 ---@field format fun(opts?: codestyle.FormatOpts)
@@ -52,7 +53,11 @@ function M.new(deps)
         language = choice.language,
         parser = choice.parser,
         code_style = (deps.store.for_buffer(buf)),
+        range = opts.range and { start_row = opts.range[1] - 1, end_row = opts.range[2] - 1 },
       })
+      for _, notice in ipairs(result.notices) do
+        deps.notices.report(notice.level, notice.scope, notice.key, notice.message)
+      end
       apply(buf, result.edits)
     end,
   }

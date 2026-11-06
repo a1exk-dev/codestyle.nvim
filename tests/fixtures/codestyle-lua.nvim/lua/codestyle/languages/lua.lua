@@ -17,6 +17,18 @@ return {
       default = false,
       label = 'Assignment operators (=)',
     },
+    {
+      key = 'conversion.semicolons',
+      type = 'boolean',
+      default = false,
+      label = 'Remove semicolons',
+    },
+    {
+      key = 'conversion.double_quotes',
+      type = 'boolean',
+      default = false,
+      label = 'Use double quotes',
+    },
   },
   formatter = 'codestyle.languages.lua.formatter',
 }
