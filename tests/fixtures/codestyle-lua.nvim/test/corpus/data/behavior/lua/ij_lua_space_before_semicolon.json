@@ -1,0 +1,36 @@
+{
+ "key": "ij_lua_space_before_semicolon",
+ "language": "lua",
+ "ui_tab": "Fixture",
+ "ui_group": null,
+ "ui_label": "ij_lua_space_before_semicolon",
+ "scheme_xml_location": [
+  "custom",
+  "SPACE_BEFORE_SEMICOLON"
+ ],
+ "status": "verified-effect",
+ "inputs": {
+  "semicolon.lua": "x=1;\n"
+ },
+ "base_outputs": {
+  "Default": {
+   "semicolon.lua": "x=1;\n"
+  }
+ },
+ "results": [
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "true",
+   "ui": "true",
+   "internal": "true",
+   "is_default": false,
+   "changed_files": {
+    "semicolon.lua": {
+     "output": "x=1 ;\n",
+     "diff": ""
+    }
+   }
+  }
+ ]
+}

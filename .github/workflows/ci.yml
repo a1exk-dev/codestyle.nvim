@@ -1,0 +1,151 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - develop
+      - main
+  pull_request:
+
+jobs:
+  tests:
+    name: Tests (Neovim ${{ matrix.neovim }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim:
+          - v0.11.7
+          - stable
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+
+      - name: Run tests
+        run: nvim --headless -l tests/run.lua
+
+      # mini.test writes a missing reference screenshot and passes, so a new
+      # or changed file under tests/screenshots means a reference is missing.
+      - name: Check that no reference screenshot is new or changed
+        run: |
+          changed="$(git status --porcelain -- tests/screenshots)"
+          if [ -n "$changed" ]; then
+            echo "::error::reference screenshots are missing or changed; run the tests locally and commit them"
+            echo "$changed"
+            exit 1
+          fi
+
+  tests-nightly:
+    name: Tests (Neovim nightly, not required)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
+        with:
+          neovim: true
+          version: nightly
+
+      # Nightly renders the Menu differently from the releases, so the
+      # screenshots are not compared there; every fact test still runs.
+      - name: Run tests
+        env:
+          CODESTYLE_SKIP_SCREENSHOTS: "1"
+        run: nvim --headless -l tests/run.lua
+
+  stylua:
+    name: Format check with StyLua
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: JohnnyMorganz/stylua-action@76fd70c03e6340ceaf673366712db9b20560b402 # v5.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: 2.6.0
+          args: --check .
+
+  luals:
+    name: Type check with lua-language-server
+    runs-on: ubuntu-latest
+    env:
+      LUALS_VERSION: 3.19.2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Install lua-language-server
+        run: |
+          mkdir -p "$RUNNER_TEMP/luals"
+          curl -sSL "https://github.com/LuaLS/lua-language-server/releases/download/${LUALS_VERSION}/lua-language-server-${LUALS_VERSION}-linux-x64.tar.gz" \
+            | tar xz -C "$RUNNER_TEMP/luals"
+
+      - name: Clone test dependencies
+        run: nvim --headless -l tests/run.lua --deps
+
+      - name: Check
+        run: |
+          export VIMRUNTIME="$(nvim --clean --headless --cmd 'echo $VIMRUNTIME | qall' 2>&1)"
+          "$RUNNER_TEMP/luals/bin/lua-language-server" --check . --checklevel=Warning --logpath="$RUNNER_TEMP/luals-log"
+
+  # ADR-0017: the tests of every first-party Language Plugin run against this
+  # Core, so a contract break shows before the plugins' weekly canary. Not a
+  # required check: it never blocks a merge. Each plugin's `test/run.lua`
+  # takes the Core from CODESTYLE_CORE_DIR instead of cloning its pinned tag.
+  first-party-plugins:
+    name: First-party Language Plugins (not required)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    env:
+      # One `owner/repo` per line. The list starts empty; the JSON plugin is
+      # the first to be added (ADR-0009).
+      PLUGINS: ""
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: core
+
+      - uses: rhysd/action-setup-vim@febef33995d6649302e9d88dda81e071b68f16a7 # v1.6.1
+        with:
+          neovim: true
+          version: stable
+
+      - name: Run each plugin's tests against this Core
+        env:
+          CODESTYLE_CORE_DIR: ${{ github.workspace }}/core
+        run: |
+          status=0
+          for repo in $PLUGINS; do
+            echo "::group::$repo"
+            git clone --quiet --depth 1 "https://github.com/$repo.git" "plugins/$repo"
+            if ! (cd "plugins/$repo" && nvim --headless -l test/run.lua); then
+              echo "::error::the tests of $repo fail against this Core"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          if [ -z "$PLUGINS" ]; then
+            echo "No first-party Language Plugin is listed yet; nothing to run."
+          fi
+          exit "$status"
