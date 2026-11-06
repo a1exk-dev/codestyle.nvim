@@ -71,11 +71,15 @@ function M.new(deps)
       report_no_choice(deps.notices, buf, no_choice)
       return nil, no_choice.message
     end
+    local code_style = deps.store.for_buffer(buf)
+    if not code_style then
+      return nil, 'the Code Style file of this buffer is broken; see the error above'
+    end
     return deps.format_run.run({
       lines = lines,
       language = choice.language,
       parser = choice.parser,
-      code_style = (deps.store.for_buffer(buf)),
+      code_style = code_style,
       range = range and { start_row = range[1] - 1, end_row = range[2] - 1 },
     })
   end

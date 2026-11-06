@@ -30,7 +30,7 @@ function M.get()
       settings = settings.get,
       notices = notices,
     })
-    local store = require('codestyle.store').new({ registry = registry })
+    local store = require('codestyle.store').new({ notices = notices, registry = registry })
     local format_api = require('codestyle.format').new({
       notices = notices,
       selector = selector,

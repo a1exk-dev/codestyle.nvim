@@ -5,12 +5,29 @@
 
 ---@alias codestyle.OptionType 'boolean'|'integer'|'choice'|'string'|'list'|'order'
 
+--- One choice of a `choice` Option. The file stores its `id` (ADR-0003).
+---@class codestyle.OptionChoice
+---@field id string
+---@field label string
+
 --- One Option of a language (ADR-0003).
 ---@class codestyle.OptionSpec
 ---@field key string the stored path, nested by topic with dots, such as `spaces.around_assignment`
 ---@field type codestyle.OptionType
----@field default any
+---@field default? any the value when none is stored; for `order`, every member in the default order; not used with `inherit`
 ---@field label string
+---@field min? integer the least value of an `integer`, or of each item of a `list` of integers
+---@field max? integer the greatest value of an `integer`, or of each item of a `list` of integers
+---@field choices? codestyle.OptionChoice[] the choices of a `choice` Option
+---@field item? 'integer'|'string' the type of each item of a `list`
+---@field inherit? string a `general` key, such as `hard_wrap_at`, whose value the Option takes when it has none stored (ADR-0018)
+
+--- One rename that a Language Plugin ships when it renames a key or a
+--- choice id (ADR-0007). The Core applies them in order on read.
+---@class codestyle.Migration
+---@field key string the old key; for a choice rename, the key of the `choice` Option
+---@field to string the new key, or the new choice id
+---@field choice? string for a choice rename, the old choice id
 
 --- The spec module `lua/codestyle/languages/<id>.lua` of a Language Plugin (ADR-0007).
 ---@class codestyle.Spec
@@ -23,6 +40,7 @@
 ---@field uses? table<string, integer> language id → the export version this plugin needs from that plugin (ADR-0007)
 ---@field exports? codestyle.Exports what this plugin offers to plugins that use it (ADR-0007)
 ---@field options codestyle.OptionSpec[]
+---@field migrations? codestyle.Migration[] renames of keys and choice ids, in the order they were made
 --- The key of the boolean Option that is PhpStorm's "Keep indents on empty lines", if the
 --- language has one. `:checkhealth codestyle` warns when editorconfig's trim would strip those indents.
 ---@field keep_indents_on_empty_lines? string
@@ -33,7 +51,8 @@
 ---@class codestyle.Exports
 ---@field version integer
 
---- The resolved Option values of one language, nested like the stored keys.
+--- The resolved Option values of one language, nested like the stored keys,
+--- with the `general` values under `general`.
 ---@alias codestyle.Values table<string, any>
 
 --- What the Core passes to a plugin's functions. Plugin functions read only
