@@ -14,6 +14,7 @@ local M = {}
 ---@field tab? integer the index of the Tab that holds the row
 ---@field control? codestyle.menu.Span where the value control of the row is: a click on it edits
 ---@field arrow? codestyle.menu.Span where the fold arrow of a Group is: a click on it folds
+---@field arrangement? codestyle.menu.ArrangementItem what a row of the Arrangement Tab stands for
 
 --- A part of a row: 0-based byte columns, end exclusive.
 ---@class codestyle.menu.Span
@@ -38,10 +39,11 @@ local M = {}
 ---@field add fun(text: string, group?: string): codestyle.menu.Span adds text to the line, highlighted with `group`
 ---@field pad_to fun(col: integer) adds blanks up to a display column, at least one
 ---@field line fun(item?: codestyle.menu.Item) ends the line
+---@field mark fun(mark: codestyle.menu.Mark) highlights a part of the line that is added next, by its columns
 ---@field view fun(): codestyle.menu.View
 
 ---@return codestyle.menu.Builder
-local function builder()
+function M.builder()
   local view = { lines = {}, items = {}, marks = {} } ---@type codestyle.menu.View
   local line = ''
   local self ---@type codestyle.menu.Builder
@@ -59,6 +61,9 @@ local function builder()
     end,
     pad_to = function(col)
       self.add((' '):rep(math.max(1, col - vim.fn.strdisplaywidth(line))))
+    end,
+    mark = function(mark)
+      table.insert(view.marks, vim.tbl_extend('force', mark, { row = #view.lines }))
     end,
     line = function(item)
       table.insert(view.lines, line)
@@ -78,12 +83,16 @@ end
 ---@field name string
 ---@field changed integer the `•N` count of the Draft
 
----@param opts { scope: codestyle.Scope, languages: codestyle.menu.Language[], kept: codestyle.KeptLanguage[] }
+---@param opts { scope: codestyle.Scope, languages: codestyle.menu.Language[], kept: codestyle.KeptLanguage[], project_xml?: boolean }
 ---@return codestyle.menu.View
 function M.languages(opts)
-  local b = builder()
+  local b = M.builder()
   b.add(opts.scope == 'project' and 'Project Code Style' or 'Global Code Style', 'Title')
   b.line()
+  if opts.project_xml then
+    b.add('Project.xml found [i] import', 'DiagnosticHint')
+    b.line()
+  end
   b.line()
   for _, language in ipairs(opts.languages) do
     b.add(language.name)
@@ -103,21 +112,36 @@ function M.languages(opts)
   return b.view()
 end
 
---- The Tabs of a spec; a spec without Tabs gets one with every Option.
----@param spec { options: codestyle.OptionSpec[], tabs?: codestyle.Tab[] }
----@return codestyle.Tab[]
+--- A Tab of the Menu: a spec's Tab, or the Core's Arrangement Tab.
+---@class codestyle.menu.Tab: codestyle.Tab
+---@field arrangement? true the Arrangement Tab (ADR-0012), which shows the Arrangement, not Options
+
+--- The Tabs that the Menu makes for a spec, one table per spec, so that each
+--- Tab stays the same table (the Preview keeps its output per Tab).
+---@type table<table, codestyle.menu.Tab[]>
+local made = setmetatable({}, { __mode = 'k' })
+
+--- The Tabs of a spec; a spec without Tabs gets one with every Option. A spec
+--- with Arrangement data gets the Arrangement Tab last.
+---@param spec { options: codestyle.OptionSpec[], tabs: codestyle.Tab[]?, arrangement: codestyle.ArrangementSpec? }
+---@return codestyle.menu.Tab[]
 function M.tabs(spec)
-  if spec.tabs and #spec.tabs > 0 then
-    return spec.tabs
+  if not made[spec] then
+    local tabs = vim.list_extend({}, spec.tabs or {})
+    if #tabs == 0 then
+      tabs[1] = {
+        name = 'Options',
+        rows = vim.tbl_map(function(option)
+          return option.key
+        end, spec.options),
+      }
+    end
+    if spec.arrangement then
+      table.insert(tabs, { name = 'Arrangement', rows = {}, sample = spec.arrangement.sample, arrangement = true })
+    end
+    made[spec] = tabs
   end
-  return {
-    {
-      name = 'Options',
-      rows = vim.tbl_map(function(option)
-        return option.key
-      end, spec.options),
-    },
-  }
+  return made[spec]
 end
 
 --- The control that shows a value, and its highlight group.
@@ -178,6 +202,7 @@ end
 ---@field changed table<string, true> the keys of the changed Options (`codestyle.Draft.changed_keys`)
 ---@field folded table<string, true> the fold ids of the folded Groups
 ---@field width integer the width of the pane
+---@field extra? codestyle.menu.View rows to add after the filtered Options, such as the Arrangement Tab's fixed rows
 
 --- The rows of one Tab, or with a query, the matching Options of every Tab
 --- with breadcrumbs (`Tab › Group › `). A changed value has a highlighted
@@ -193,7 +218,7 @@ function M.tab_rows(opts)
   -- The column of the values: a fixed place, or the middle of a narrow pane.
   local value_col = math.min(36, math.floor(opts.width / 2))
   local query = opts.query and opts.query:lower()
-  local b = builder()
+  local b = M.builder()
 
   ---@param text string
   local function matches(text)
@@ -290,6 +315,16 @@ function M.tab_rows(opts)
     for index, tab in ipairs(opts.tabs) do
       walk(tab.rows, 0, index, {})
     end
+    local extra = opts.extra or { lines = {}, items = {}, marks = {} }
+    for row, line in ipairs(extra.lines) do
+      for _, mark in ipairs(extra.marks) do
+        if mark.row == row - 1 then
+          b.mark(mark)
+        end
+      end
+      b.add(line)
+      b.line(extra.items[row])
+    end
     if #b.view().lines == 0 then
       b.add(('  No Option matches "%s"'):format(opts.query), 'Comment')
       b.line()
@@ -301,16 +336,21 @@ function M.tab_rows(opts)
 end
 
 --- The Tab strip of the Options pane's winbar. A click on a Tab calls
---- `click` with the Tab's index.
----@param tabs codestyle.Tab[]
+--- `click` with the Tab's index. A changed Arrangement marks its Tab `•`.
+---@param tabs codestyle.menu.Tab[]
 ---@param active integer
 ---@param click string the Vim function name of the click handler
+---@param arrangement_changed? boolean
 ---@return string
-function M.tab_strip(tabs, active, click)
+function M.tab_strip(tabs, active, click, arrangement_changed)
   local parts = {}
   for index, tab in ipairs(tabs) do
     local group = index == active and '%#TabLineSel#' or '%#TabLine#'
-    table.insert(parts, ('%s%%%d@%s@ %s %%X'):format(group, index, click, (tab.name:gsub('%%', '%%%%'))))
+    local name = tab.name:gsub('%%', '%%%%')
+    if tab.arrangement and arrangement_changed then
+      name = name .. ' •'
+    end
+    table.insert(parts, ('%s%%%d@%s@ %s %%X'):format(group, index, click, name))
   end
   -- `%<` cuts a strip that is too long at its end, so the first Tab stays.
   return table.concat(parts, '%#WinBar# ') .. '%#WinBar#%<'

@@ -92,6 +92,7 @@ function M.run(request)
     local edits, found, span = arrangement.arrange(ctx, stored, plugin, lines)
     for _, match in ipairs(matches) do
       match.row, match.col = text.shift(match.row, match.col, edits)
+      match.end_row, match.end_col = text.shift(match.end_row, match.end_col, edits)
     end
     vim.list_extend(matches, found)
     lines = text.apply(lines, edits)

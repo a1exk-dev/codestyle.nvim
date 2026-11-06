@@ -123,7 +123,8 @@ T['opens on the language of the current buffer'] = function()
   child:open_buffer({ lines = { 'x=1' }, filetype = 'lua' })
   open_menu()
   expect.equality(child.api.nvim_get_current_win(), pane_win('options'))
-  expect.equality(winbar_text('options'), ' Spaces   Wrapping   Other ')
+  -- The fake lua has Arrangement data, so the Core adds the Arrangement Tab last.
+  expect.equality(winbar_text('options'), ' Spaces   Wrapping   Other   Arrangement ')
   expect.equality(pane_lines('options'), { '[ ] Assignment operators (=)' })
 end
 
@@ -135,6 +136,9 @@ T['<Tab> and <S-Tab> and clicks switch the Tab'] = function()
   expect.equality(pane_rows('options')[1], '▾ Function call arguments ‹Do not wrap›')
   expect.equality(pane_lines('preview'), { "print('a', 'b')" })
   child.type_keys('<S-Tab>', '<S-Tab>')
+  settle()
+  expect.equality(pane_rows('options')[1], '[x] Rearrange when formatting')
+  child.type_keys('<S-Tab>')
   settle()
   expect.equality(pane_rows('options')[1], 'Indent [ 4 ]')
 

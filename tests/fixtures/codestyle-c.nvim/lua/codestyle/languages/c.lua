@@ -28,4 +28,16 @@ return {
   },
   formatter = 'codestyle.languages.c.formatter',
   scheme = 'codestyle.languages.c.scheme',
+  -- The sort panel of the CSS family (ADR-0012) over the top-level
+  -- declarations, which stand for CSS declarations. Off by default, as
+  -- PhpStorm's "Sort CSS properties".
+  arrangement = {
+    module = 'codestyle.languages.c.arrangement',
+    panel = 'sort',
+    types = { 'declaration' },
+    name = true,
+    custom_order = { 'color', 'width', 'align' },
+    default = { enabled = true, aliases = {}, keep_together = {}, slots = {} },
+    sample = { 'int width = 1;', 'int top = 2;', 'int color = 3;', 'int align = 4;' },
+  },
 }

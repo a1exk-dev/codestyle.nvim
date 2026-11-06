@@ -3,8 +3,14 @@
 -- pane is a scratch buffer drawn whole from a view model (`menu.view`); the
 -- keys and clicks turn into Draft operations (`menu.edit`), and the Preview
 -- follows the Draft. Closing with unsaved changes asks Save / Discard / Cancel.
+-- A language with Arrangement data gets the Arrangement Tab (ADR-0012), whose
+-- rows and keys come from `menu.arrangement_rows` and `menu.arrangement_edit`.
 
+local arrangement = require('codestyle.arrangement')
+local arrangement_edit = require('codestyle.menu.arrangement_edit')
+local arrangement_rows = require('codestyle.menu.arrangement_rows')
 local code_style = require('codestyle.code_style')
+local draft_actions = require('codestyle.menu.draft_actions')
 local edit = require('codestyle.menu.edit')
 local general = require('codestyle.general')
 local repo = require('codestyle.repo')
@@ -12,6 +18,7 @@ local view = require('codestyle.menu.view')
 
 ---@class codestyle.MenuOpts
 ---@field scope? codestyle.Scope the Code Style to edit; default the one of the current buffer
+---@field import? string|true imports a Scheme XML once the Menu is open: this path, or `true` for the repo's `Project.xml` or a path the user gives (ADR-0010)
 
 ---@class codestyle.Menu
 ---@field open fun(opts?: codestyle.MenuOpts) opens the Menu, or focuses it when it is open
@@ -117,7 +124,7 @@ local function inside(span, col)
   return span ~= nil and col >= span.start_col and col < span.end_col
 end
 
----@param deps { registry: codestyle.Registry, store: codestyle.Store, selector: codestyle.Selector, notices: codestyle.Notices, preview: codestyle.Preview, draft: fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? }
+---@param deps { registry: codestyle.Registry, store: codestyle.Store, selector: codestyle.Selector, notices: codestyle.Notices, preview: codestyle.Preview, presets: codestyle.Presets, scheme_xml: codestyle.SchemeXml, draft: fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? }
 ---@return codestyle.Menu
 function M.new(deps)
   --- What the Menu shows, kept when the Menu opens again on the same Draft.
@@ -126,6 +133,7 @@ function M.new(deps)
   ---@field tab table<string, integer> the current Tab of each language
   ---@field folded table<string, table<string, true>> the folded Groups of each language
   ---@field query? string the filter of the Options pane
+  ---@field root? string the repo root of the buffer that the Menu was opened from
 
   ---@class codestyle.menu.State: codestyle.menu.Place
   ---@field draft codestyle.Draft
@@ -142,7 +150,7 @@ function M.new(deps)
   local state
 
   ---@param id string
-  ---@return { name: string, options: codestyle.OptionSpec[], tabs?: codestyle.Tab[] }
+  ---@return { name: string, options: codestyle.OptionSpec[], tabs?: codestyle.Tab[], arrangement?: codestyle.ArrangementSpec }
   local function spec_of(id)
     if id == general.id then
       return general
@@ -157,7 +165,7 @@ function M.new(deps)
   end
 
   ---@param s codestyle.menu.State
-  ---@return codestyle.Tab[], integer
+  ---@return codestyle.menu.Tab[], integer
   local function current_tab(s)
     local tabs = view.tabs(spec_of(s.language))
     local index = math.min(s.tab[s.language] or 1, #tabs)
@@ -184,12 +192,19 @@ function M.new(deps)
     return vim.fn.fnamemodify(deps.store.path(s.draft.scope, s.draft.root), ':~')
   end
 
+  local actions ---@type codestyle.menu.DraftActions
+
   local function render_languages()
     local s = assert(state)
     local entries = vim.tbl_map(function(id)
       return { id = id, name = spec_of(id).name, changed = s.draft.changed(id) }
     end, language_ids())
-    s.languages_view = view.languages({ scope = s.draft.scope, languages = entries, kept = s.draft.kept_languages() })
+    s.languages_view = view.languages({
+      scope = s.draft.scope,
+      languages = entries,
+      kept = s.draft.kept_languages(),
+      project_xml = actions.project_xml_found(),
+    })
     draw(s.bufs.languages, s.languages_view)
     local win = win_of('languages')
     if win and vim.api.nvim_get_current_win() ~= win then
@@ -201,26 +216,78 @@ function M.new(deps)
     end
   end
 
+  --- Puts the Options cursor on the Arrangement row that stands for `wanted`.
+  ---@param wanted codestyle.menu.ArrangementItem
+  local function focus_row(wanted)
+    local win = win_of('options')
+    for row, item in pairs(state and state.options_view and state.options_view.items or {}) do
+      if win and item.arrangement and vim.deep_equal(item.arrangement, wanted) then
+        vim.api.nvim_win_set_cursor(win, { row, 0 })
+      end
+    end
+  end
+
   local function render_options()
     local s = assert(state)
+    -- The cursor stays on its Arrangement row when rows above it come or go.
+    local before = item_at_cursor()
     local spec = spec_of(s.language)
     local tabs, index = current_tab(s)
     local win = win_of('options')
-    s.options_view = view.tab_rows({
-      spec = spec,
-      tabs = tabs,
-      tab = index,
-      query = s.query,
-      values = s.draft.code_style().values(s.language),
-      changed = s.draft.changed_keys(s.language),
-      folded = s.folded[s.language] or {},
-      width = win and vim.api.nvim_win_get_width(win) or 80,
-    })
+    local width = win and vim.api.nvim_win_get_width(win) or 80
+    if tabs[index].arrangement and not s.query then
+      local target = { draft = s.draft, language = s.language, spec = assert(spec.arrangement) }
+      local current, problem = arrangement_edit.current(target)
+      s.options_view = arrangement_rows.rows({
+        spec = target.spec,
+        arrangement = current,
+        default = arrangement.validate(target.spec, nil),
+        problem = problem,
+        folded = s.folded[s.language] or {},
+        width = width,
+      })
+    else
+      -- The filter finds the fixed rows of the Arrangement Tab too.
+      local extra
+      if s.query and spec.arrangement then
+        local target = { draft = s.draft, language = s.language, spec = spec.arrangement }
+        extra = arrangement_rows.rows({
+          spec = target.spec,
+          arrangement = (arrangement_edit.current(target)),
+          default = arrangement.validate(target.spec, nil),
+          folded = {},
+          width = width,
+          query = s.query,
+        })
+        for _, item in pairs(extra.items) do
+          item.tab = #tabs
+        end
+      end
+      s.options_view = view.tab_rows({
+        spec = spec,
+        tabs = tabs,
+        tab = index,
+        query = s.query,
+        extra = extra,
+        values = s.draft.code_style().values(s.language),
+        changed = s.draft.changed_keys(s.language),
+        folded = s.folded[s.language] or {},
+        width = width,
+      })
+    end
     draw(s.bufs.options, s.options_view)
+    if before and before.arrangement then
+      focus_row(before.arrangement)
+    end
     if win then
       vim.wo[win].winbar = s.query
           and ('%%#Search# Filter: %s %%#WinBar# F clears'):format((s.query:gsub('%%', '%%%%')))
-        or view.tab_strip(tabs, index, CLICK)
+        or view.tab_strip(
+          tabs,
+          index,
+          CLICK,
+          s.language ~= general.id and spec.arrangement ~= nil and s.draft.arrangement_changed(s.language)
+        )
     end
     local scope = s.draft.scope == 'project' and 'Project Code Style' or 'Global Code Style'
     s.layout.root:set_title(
@@ -294,14 +361,36 @@ function M.new(deps)
   end
 
   local editor = edit.new({ notices = deps.notices, on_float_close = focus_options })
+  local arrangement_editor = arrangement_edit.new({ notices = deps.notices, on_float_close = focus_options })
 
-  --- Acts on the Option of an Options row.
+  --- The rule of the Arrangement row under the cursor, for the Preview.
+  local function highlight_rule()
+    local s = assert(state)
+    local item = item_at_cursor()
+    local found = item and item.arrangement and item.arrangement.kind == 'rule' and item.arrangement
+    s.preview.highlight(found and { slot = found.slot, rule = found.rule } or nil)
+  end
+
+  --- Acts on the Option of an Options row, or on a row of the Arrangement Tab.
   ---@param item? codestyle.menu.Item
-  ---@param action codestyle.menu.Action
+  ---@param action codestyle.menu.ArrangementAction
   local function act(item, action)
     local s = assert(state)
     if item and item.option then
-      editor.act({ draft = s.draft, language = s.language, spec = spec_of(s.language), option = item.option }, action)
+      if vim.list_contains({ 'toggle', 'edit', 'next', 'prev', 'reset' }, action) then
+        editor.act(
+          { draft = s.draft, language = s.language, spec = spec_of(s.language), option = item.option },
+          action --[[@as codestyle.menu.Action]]
+        )
+      end
+    elseif item and item.arrangement then
+      local spec = assert(spec_of(s.language).arrangement)
+      local target = { draft = s.draft, language = s.language, spec = spec }
+      local focus = arrangement_editor.act(target, item.arrangement, action)
+      if focus and state == s then
+        focus_row(focus)
+        highlight_rule()
+      end
     end
   end
 
@@ -365,7 +454,8 @@ function M.new(deps)
     if inside(item.arrow, col) then
       fold(item)
     elseif inside(item.control, col) then
-      act(item, 'edit')
+      local kind = item.arrangement and item.arrangement.kind
+      act(item, (kind == 'enabled' or kind == 'keep' or kind == 'sort') and 'toggle' or 'edit')
     end
   end
 
@@ -389,7 +479,7 @@ function M.new(deps)
 
   local menu ---@type codestyle.Menu
 
-  ---@param action codestyle.menu.Action
+  ---@param action codestyle.menu.ArrangementAction
   local function on_row(action)
     return function()
       act(item_at_cursor(), action)
@@ -463,6 +553,34 @@ function M.new(deps)
       end,
       desc = 'list the keys',
     },
+    {
+      's',
+      function()
+        actions.switch_scope()
+      end,
+      desc = 'switch between Global and Project',
+    },
+    {
+      'p',
+      function()
+        actions.set_from()
+      end,
+      desc = 'set from a Preset',
+    },
+    {
+      'i',
+      function()
+        actions.import()
+      end,
+      desc = 'import a Scheme XML',
+    },
+    {
+      'R',
+      function()
+        actions.report()
+      end,
+      desc = 'the report of the last import',
+    },
     { '<RightMouse>', right_click, desc = 'toggle or cycle the clicked value' },
     { '<Space>', on_row('toggle'), desc = 'toggle / cycle', pane = 'options' },
     {
@@ -511,6 +629,15 @@ function M.new(deps)
       pane = 'options',
     },
     { '<LeftRelease>', left_click, desc = 'edit the clicked value', pane = 'options' },
+    { 'X', on_row('reset_all'), desc = 'reset the whole Arrangement', pane = 'options' },
+    { 'o', on_row('add_slot'), desc = 'add a rule in a new Slot below / an alias', pane = 'options' },
+    { 'a', on_row('add_rule'), desc = 'add a rule to this Slot', pane = 'options' },
+    { 'J', on_row('down'), desc = 'move the rule down', pane = 'options' },
+    { 'K', on_row('up'), desc = 'move the rule up', pane = 'options' },
+    { 'gJ', on_row('slot_down'), desc = 'move the Slot down', pane = 'options' },
+    { 'gK', on_row('slot_up'), desc = 'move the Slot up', pane = 'options' },
+    { 'dd', on_row('delete'), desc = 'delete the rule / alias', pane = 'options' },
+    { 'r', on_row('rename'), desc = 'rename the alias', pane = 'options' },
     { '<CR>', focus_options, desc = 'go to the Options', pane = 'languages' },
   }
 
@@ -558,7 +685,7 @@ function M.new(deps)
       title = 'Keys',
       border = 'rounded',
       width = 40,
-      height = #lines,
+      height = math.min(#lines, vim.o.lines - 4),
       zindex = 100,
       backdrop = false,
       enter = true,
@@ -615,6 +742,43 @@ function M.new(deps)
       end
     end)
   end
+
+  actions = draft_actions.new({
+    presets = deps.presets,
+    scheme_xml = deps.scheme_xml,
+    store = deps.store,
+    draft = deps.draft,
+    notices = deps.notices,
+    host = {
+      draft = function()
+        return state and state.draft
+      end,
+      language = function()
+        local id = assert(state).language
+        return id, spec_of(id).name
+      end,
+      name = function(id)
+        return spec_of(id).name
+      end,
+      root = function()
+        return assert(state).root
+      end,
+      focus = focus_options,
+      swap = function(draft)
+        local s = assert(state)
+        unmount(s)
+        mount(draft, s)
+      end,
+      settle = function(after)
+        local s = assert(state)
+        if s.draft.modified() then
+          ask(s, after, function() end)
+        else
+          after()
+        end
+      end,
+    },
+  })
 
   ---@param draft codestyle.Draft
   ---@param place codestyle.menu.Place
@@ -705,6 +869,7 @@ function M.new(deps)
       tab = place.tab,
       folded = place.folded,
       query = place.query,
+      root = place.root,
     }
     s.preview = deps.preview.attach(draft, {
       buf = bufs.preview,
@@ -749,6 +914,9 @@ function M.new(deps)
         if state == s and s.query then
           show_preview()
         end
+        if state == s then
+          highlight_rule()
+        end
       end,
     })
   end
@@ -760,8 +928,12 @@ function M.new(deps)
       deps.notices.report(vim.log.levels.ERROR, 'always', 'menu', 'the Menu needs snacks.nvim; install it')
       return
     end
+    local path = type(opts.import) == 'string' and opts.import --[[@as string]] or nil
     if state then
       focus_options()
+      if opts.import then
+        actions.import(path)
+      end
       return
     end
     local buf = vim.api.nvim_get_current_buf()
@@ -779,7 +951,10 @@ function M.new(deps)
       return
     end
     local choice = deps.selector.choose(buf)
-    mount(draft, { language = choice and choice.language or general.id, tab = {}, folded = {} })
+    mount(draft, { language = choice and choice.language or general.id, tab = {}, folded = {}, root = root })
+    if opts.import then
+      actions.import(path)
+    end
   end
 
   menu = {
