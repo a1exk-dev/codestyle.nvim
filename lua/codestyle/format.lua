@@ -20,6 +20,8 @@
 --- earlier conform formatter. Returns the new lines, or nil and why not.
 ---@field format_lines fun(buf: integer, lines: string[], range?: integer[]): string[]?, string?
 
+local repo = require('codestyle.repo')
+
 local M = {}
 
 ---@param buf integer
@@ -75,13 +77,19 @@ function M.new(deps)
     if not code_style then
       return nil, 'the Code Style file of this buffer is broken; see the error above'
     end
+    local path = vim.api.nvim_buf_get_name(buf)
     local result = deps.format_run.run({
       lines = lines,
       language = choice.language,
       parser = choice.parser,
       code_style = code_style,
       range = range and { start_row = range[1] - 1, end_row = range[2] - 1 },
+      path = path ~= '' and path or nil,
+      root = repo.root(buf) or vim.fn.getcwd(),
     })
+    if result.fileformat then
+      vim.bo[buf].fileformat = result.fileformat
+    end
     for _, notice in ipairs(result.notices) do
       deps.notices.report(notice.level, notice.scope, notice.key, notice.message)
     end
