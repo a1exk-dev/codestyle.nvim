@@ -4,7 +4,8 @@
 -- `before` steps, the Engine or the plugin's own `format(ctx)`, and the
 -- `after` steps, with a new parse before each. It drops edits in marker
 -- regions and plugin edits outside the range, and at the end removes the
--- trailing blanks of the lines it changed.
+-- trailing blanks of the lines it changed. An error in the plugin's code
+-- ends the run as one failure, and the caller decides what the user sees.
 
 local do_not_format = require('codestyle.do_not_format')
 local engine = require('codestyle.engine')
@@ -36,8 +37,14 @@ local text = require('codestyle.text')
 ---@field notices codestyle.Notice[]
 ---@field fileformat? 'dos' set when mixed line endings convert to CRLF; `lines` then hold no `\r`
 
+--- A run that the Language Plugin's code ended with an error. The run
+--- changes nothing; each caller decides what the user sees.
+---@class codestyle.FormatFailure
+---@field language string the language id
+---@field message string the error that the plugin's code raised
+
 ---@class codestyle.FormatRun
----@field run fun(request: codestyle.FormatRequest): codestyle.FormatResult
+---@field run fun(request: codestyle.FormatRequest): codestyle.FormatResult?, codestyle.FormatFailure?
 
 local M = {}
 
@@ -65,7 +72,13 @@ function M.new(deps)
   return {
     run = function(request)
       local languages = language_context.new({ registry = deps.registry, code_style = request.code_style })
-      local language = languages.get(request.language)
+      -- Getting the language loads its formatter: the first call into the
+      -- plugin's code.
+      local got, language = pcall(languages.get, request.language)
+      if not got then
+        return nil, { language = request.language, message = tostring(language) }
+      end
+      ---@cast language codestyle.Language
       local values = language.values
       local notices = {} ---@type codestyle.Notice[]
 
@@ -74,7 +87,6 @@ function M.new(deps)
         return { lines = request.lines, edits = {}, notices = { skip } }
       end
 
-      local formatter = language.formatter
       local spec = deps.registry.get(request.language) --[[@as codestyle.Spec]]
       local converted, fileformat = line_endings.convert(request.lines)
       local lines = converted
@@ -140,18 +152,26 @@ function M.new(deps)
         lines = text.apply(lines, edits)
       end
 
-      for _, step in ipairs(formatter.before or {}) do
-        apply(step(context()))
-      end
-      if formatter.format then
-        apply(formatter.format(context()))
-      else
-        local edits, engine_notices = engine.layout(context(), languages)
-        vim.list_extend(notices, engine_notices)
-        apply(edits)
-      end
-      for _, step in ipairs(formatter.after or {}) do
-        apply(step(context()))
+      -- The rest of the plugin's code: its steps, and the engine, which
+      -- calls `build`, the rules and the formatters of Embedded Languages.
+      local formatter = language.formatter
+      local ok, err = pcall(function()
+        for _, step in ipairs(formatter.before or {}) do
+          apply(step(context()))
+        end
+        if formatter.format then
+          apply(formatter.format(context()))
+        else
+          local edits, engine_notices = engine.layout(context(), languages)
+          vim.list_extend(notices, engine_notices)
+          apply(edits)
+        end
+        for _, step in ipairs(formatter.after or {}) do
+          apply(step(context()))
+        end
+      end)
+      if not ok then
+        return nil, { language = request.language, message = tostring(err) }
       end
 
       local keep_key = spec.keep_indents_on_empty_lines

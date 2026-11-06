@@ -78,7 +78,7 @@ function M.new(deps)
       return nil, 'the Code Style file of this buffer is broken; see the error above'
     end
     local path = vim.api.nvim_buf_get_name(buf)
-    local result = deps.format_run.run({
+    local result, failure = deps.format_run.run({
       lines = lines,
       language = choice.language,
       parser = choice.parser,
@@ -87,6 +87,15 @@ function M.new(deps)
       path = path ~= '' and path or nil,
       root = repo.root(buf) or vim.fn.getcwd(),
     })
+    if not result then
+      ---@cast failure codestyle.FormatFailure
+      local message = ('Language Plugin "%s" failed; the buffer is unchanged: %s'):format(
+        failure.language,
+        failure.message
+      )
+      deps.notices.report(vim.log.levels.ERROR, 'run', failure.language, message)
+      return nil, message
+    end
     if result.fileformat then
       vim.bo[buf].fileformat = result.fileformat
     end

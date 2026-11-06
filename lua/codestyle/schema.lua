@@ -1,5 +1,6 @@
 -- The Option Schema (ADR-0003, ADR-0018): the six Option types, their
--- validation and defaults, and inheritance from `general`. It does no I/O.
+-- validation and defaults, inheritance from `general`, and the dependency
+-- predicates that dim an Option in the Menu. It does no I/O.
 
 local M = {}
 
@@ -144,6 +145,24 @@ local checkers = {
 ---@return string? problem why it is invalid
 function M.check(option, raw)
   return checkers[option.type](option, raw)
+end
+
+--- True when the Option's requirement holds for the language's values, so
+--- the Menu shows it active. A requirement only dims an Option: formatting
+--- reads its value either way.
+---@param option codestyle.OptionSpec
+---@param values codestyle.Values the resolved values of the Option's language
+---@return boolean
+function M.active(option, values)
+  local requires = option.requires
+  if not requires then
+    return true
+  end
+  local value = vim.tbl_get(values, unpack(vim.split(requires.key, '.', { plain = true })))
+  if requires.is ~= nil then
+    return vim.deep_equal(value, requires.is)
+  end
+  return not vim.deep_equal(value, requires.is_not)
 end
 
 --- The stored value at a dotted key, and the dotted prefix of the key that is

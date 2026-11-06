@@ -1,10 +1,12 @@
 -- The Menu (ADR-0004): a modal dialog of three snacks floats over a dim
 -- backdrop, the language list, the Options of one Tab and the Preview. Each
 -- pane is a scratch buffer drawn whole from a view model (`menu.view`); the
--- keys turn into Draft operations, and the Preview follows the Draft.
+-- keys and clicks turn into Draft operations (`menu.edit`), and the Preview
+-- follows the Draft. Closing with unsaved changes asks Save / Discard / Cancel.
 
-local general = require('codestyle.general')
 local code_style = require('codestyle.code_style')
+local edit = require('codestyle.menu.edit')
+local general = require('codestyle.general')
 local repo = require('codestyle.repo')
 local view = require('codestyle.menu.view')
 
@@ -22,6 +24,7 @@ local M = {}
 local ns = vim.api.nvim_create_namespace('codestyle.menu')
 
 vim.api.nvim_set_hl(0, 'CodestyleChanged', { link = 'DiagnosticInfo', default = true })
+vim.api.nvim_set_hl(0, 'CodestylePreviewChanged', { link = 'DiffChange', default = true })
 
 --- The click handler of the open Menu: winbar clicks call a Vim function by name.
 ---@type fun(index: integer)?
@@ -67,7 +70,11 @@ end
 
 ---@return string
 local function footer()
-  local text = fit({ '<Tab> Tab · <C-h>/<C-l> pane · l/h value · g? keys · q close', 'g? keys · q close' })
+  local text = fit({
+    '<Space>/<CR> edit · x reset · f filter · u undo · <C-s> save · g? keys · q close',
+    '<CR> edit · f filter · <C-s> save · g? keys · q close',
+    'g? keys · q close',
+  })
   return text == '' and '' or ' ' .. text .. ' '
 end
 
@@ -86,55 +93,50 @@ end
 ---@param buf integer
 ---@param pane codestyle.menu.View
 local function draw(buf, pane)
+  local cursors = {} ---@type table<integer, integer[]>
+  for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+    cursors[win] = vim.api.nvim_win_get_cursor(win)
+  end
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, pane.lines)
   vim.bo[buf].modifiable = false
+  for win, cursor in pairs(cursors) do
+    vim.api.nvim_win_set_cursor(win, { math.min(cursor[1], #pane.lines), cursor[2] })
+  end
   vim.api.nvim_buf_clear_namespace(buf, ns, 0, -1)
   for _, mark in ipairs(pane.marks) do
     vim.api.nvim_buf_set_extmark(buf, ns, mark.row, mark.start_col, { end_col = mark.end_col, hl_group = mark.group })
   end
 end
 
---- The next or the previous value of an Option for `l`/`h`; nil when the
---- type has no such step (#11 resolution).
----@param option codestyle.OptionSpec
----@param value any
----@param delta integer 1 or -1
----@return any
-local function step_value(option, value, delta)
-  if option.type == 'boolean' then
-    return not value
-  elseif option.type == 'integer' then
-    local next_value = value + delta
-    if (option.min and next_value < option.min) or (option.max and next_value > option.max) then
-      return nil
-    end
-    return next_value
-  elseif option.type == 'choice' then
-    local choices = option.choices or {}
-    for index, choice in ipairs(choices) do
-      if choice.id == value then
-        return choices[(index - 1 + delta) % #choices + 1].id
-      end
-    end
-    return choices[1] and choices[1].id
-  end
+--- True when a 0-based byte column is inside a span of a row.
+---@param span? codestyle.menu.Span
+---@param col integer
+---@return boolean
+local function inside(span, col)
+  return span ~= nil and col >= span.start_col and col < span.end_col
 end
 
 ---@param deps { registry: codestyle.Registry, store: codestyle.Store, selector: codestyle.Selector, notices: codestyle.Notices, preview: codestyle.Preview, draft: fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? }
 ---@return codestyle.Menu
 function M.new(deps)
-  ---@class codestyle.menu.State
+  --- What the Menu shows, kept when the Menu opens again on the same Draft.
+  ---@class codestyle.menu.Place
+  ---@field language string the current language id
+  ---@field tab table<string, integer> the current Tab of each language
+  ---@field folded table<string, table<string, true>> the folded Groups of each language
+  ---@field query? string the filter of the Options pane
+
+  ---@class codestyle.menu.State: codestyle.menu.Place
   ---@field draft codestyle.Draft
   ---@field preview codestyle.PreviewHandle
   ---@field layout snacks.layout
   ---@field bufs { languages: integer, options: integer, preview: integer }
-  ---@field language string the current language id
-  ---@field tab table<string, integer> the current Tab of each language
   ---@field languages_view? codestyle.menu.View
   ---@field options_view? codestyle.menu.View
   ---@field unsubscribe fun()
   ---@field marker? string the Preview's failure marker
+  ---@field shown? codestyle.Tab the Tab that the Preview shows
 
   ---@type codestyle.menu.State?
   local state
@@ -169,6 +171,19 @@ function M.new(deps)
     return win and win:win_valid() and win.win or nil
   end
 
+  --- The item of the Options row under the cursor.
+  ---@return codestyle.menu.Item?
+  local function item_at_cursor()
+    local win = win_of('options')
+    return win and state and state.options_view and state.options_view.items[vim.api.nvim_win_get_cursor(win)[1]]
+  end
+
+  ---@param s codestyle.menu.State
+  ---@return string
+  local function path_of(s)
+    return vim.fn.fnamemodify(deps.store.path(s.draft.scope, s.draft.root), ':~')
+  end
+
   local function render_languages()
     local s = assert(state)
     local entries = vim.tbl_map(function(id)
@@ -193,18 +208,23 @@ function M.new(deps)
     local win = win_of('options')
     s.options_view = view.tab_rows({
       spec = spec,
-      tab = tabs[index],
+      tabs = tabs,
+      tab = index,
+      query = s.query,
       values = s.draft.code_style().values(s.language),
+      changed = s.draft.changed_keys(s.language),
+      folded = s.folded[s.language] or {},
       width = win and vim.api.nvim_win_get_width(win) or 80,
     })
     draw(s.bufs.options, s.options_view)
     if win then
-      vim.wo[win].winbar = view.tab_strip(tabs, index, CLICK)
+      vim.wo[win].winbar = s.query
+          and ('%%#Search# Filter: %s %%#WinBar# F clears'):format((s.query:gsub('%%', '%%%%')))
+        or view.tab_strip(tabs, index, CLICK)
     end
-    local path = vim.fn.fnamemodify(deps.store.path(s.draft.scope, s.draft.root), ':~')
     local scope = s.draft.scope == 'project' and 'Project Code Style' or 'Global Code Style'
     s.layout.root:set_title(
-      fit({ ('%s · %s · %s'):format(spec.name, scope, path), ('%s · %s'):format(spec.name, scope), spec.name })
+      fit({ ('%s · %s · %s'):format(spec.name, scope, path_of(s)), ('%s · %s'):format(spec.name, scope), spec.name })
     )
   end
 
@@ -218,10 +238,17 @@ function M.new(deps)
     end
   end
 
+  --- Shows the current Tab in the Preview; with a filter, the Tab of the
+  --- Option under the cursor.
   local function show_preview()
     local s = assert(state)
     local tabs, index = current_tab(s)
-    s.preview.show({ language = s.language, tab = tabs[index] })
+    local item = s.query and item_at_cursor()
+    local tab = tabs[item and item.tab or index]
+    if s.shown ~= tab then
+      s.shown = tab
+      s.preview.show({ language = s.language, tab = tab })
+    end
   end
 
   ---@param id string
@@ -259,24 +286,115 @@ function M.new(deps)
     end
   end
 
-  ---@param delta integer
-  local function step(delta)
+  local function focus_options()
+    local win = win_of('options')
+    if win then
+      vim.api.nvim_set_current_win(win)
+    end
+  end
+
+  local editor = edit.new({ notices = deps.notices, on_float_close = focus_options })
+
+  --- Acts on the Option of an Options row.
+  ---@param item? codestyle.menu.Item
+  ---@param action codestyle.menu.Action
+  local function act(item, action)
     local s = assert(state)
-    local win = assert(win_of('options'))
-    local item = s.options_view and s.options_view.items[vim.api.nvim_win_get_cursor(win)[1]]
-    local option = item and item.option
-    if not option then
+    if item and item.option then
+      editor.act({ draft = s.draft, language = s.language, spec = spec_of(s.language), option = item.option }, action)
+    end
+  end
+
+  --- Folds or unfolds the Group of an Options row.
+  ---@param item? codestyle.menu.Item
+  local function fold(item)
+    local s = assert(state)
+    if item and item.group then
+      local folded = s.folded[s.language] or {}
+      s.folded[s.language] = folded
+      folded[item.group] = not folded[item.group] or nil
+      render_options()
+    end
+  end
+
+  ---@param query? string
+  local function filter(query)
+    local s = assert(state)
+    s.query = query
+    render_options()
+    local win = win_of('options')
+    if win then
+      vim.api.nvim_win_set_cursor(win, { 1, 0 })
+    end
+    show_preview()
+  end
+
+  --- Writes the Draft to its file.
+  ---@return boolean saved
+  local function save()
+    local s = assert(state)
+    local ok, problem = s.draft.save()
+    if ok then
+      deps.notices.report(vim.log.levels.INFO, 'always', 'menu', 'saved ' .. path_of(s))
+    else
+      deps.notices.report(vim.log.levels.ERROR, 'always', 'menu', ('%s was not saved: %s'):format(path_of(s), problem))
+    end
+    return ok
+  end
+
+  --- The mouse position when it is on a row of a pane's text.
+  ---@param name 'languages'|'options'|'preview'
+  ---@return { line: integer, column: integer }?
+  local function mouse_on(name)
+    local pos = vim.fn.getmousepos()
+    if pos.winid ~= 0 and pos.winid == win_of(name) and pos.line >= 1 then
+      return pos
+    end
+  end
+
+  --- A left click on an Options row, after the press moved the cursor: on a
+  --- value control it edits, on a Group arrow it folds; on a label it does
+  --- nothing more.
+  local function left_click()
+    local pos = mouse_on('options')
+    local item = pos and state and state.options_view and state.options_view.items[pos.line]
+    if not pos or not item then
       return
     end
-    local value =
-      vim.tbl_get(s.draft.code_style().values(s.language), unpack(vim.split(option.key, '.', { plain = true })))
-    local next_value = step_value(option, value, delta)
-    if next_value ~= nil then
-      s.draft.set(s.language, option.key, next_value)
+    local col = pos.column - 1
+    if inside(item.arrow, col) then
+      fold(item)
+    elseif inside(item.control, col) then
+      act(item, 'edit')
+    end
+  end
+
+  --- A right click moves the cursor; on a value control it acts like
+  --- `<Space>` (#12). The popup menu never opens in the Menu.
+  local function right_click()
+    for _, name in ipairs({ 'languages', 'options', 'preview' }) do
+      local pos = mouse_on(name)
+      if pos then
+        local win = assert(win_of(name))
+        vim.api.nvim_set_current_win(win)
+        vim.api.nvim_win_set_cursor(win, { pos.line, math.max(0, pos.column - 1) })
+        local item = name == 'options' and state and state.options_view and state.options_view.items[pos.line]
+        if item and inside(item.control, pos.column - 1) then
+          act(item, 'toggle')
+        end
+        return
+      end
     end
   end
 
   local menu ---@type codestyle.Menu
+
+  ---@param action codestyle.menu.Action
+  local function on_row(action)
+    return function()
+      act(item_at_cursor(), action)
+    end
+  end
 
   --- The keys of every pane, then the keys of each pane, with their help text.
   ---@type { [1]: string, [2]: fun(), desc: string, pane?: string }[]
@@ -310,6 +428,21 @@ function M.new(deps)
       desc = 'pane to the right',
     },
     {
+      'u',
+      function()
+        assert(state).draft.undo()
+      end,
+      desc = 'undo',
+    },
+    {
+      '<C-r>',
+      function()
+        assert(state).draft.redo()
+      end,
+      desc = 'redo',
+    },
+    { '<C-s>', save, desc = 'save' },
+    {
       'q',
       function()
         menu.close()
@@ -330,30 +463,55 @@ function M.new(deps)
       end,
       desc = 'list the keys',
     },
-    {
-      'l',
-      function()
-        step(1)
-      end,
-      desc = 'next value',
-      pane = 'options',
-    },
-    {
-      'h',
-      function()
-        step(-1)
-      end,
-      desc = 'previous value',
-      pane = 'options',
-    },
+    { '<RightMouse>', right_click, desc = 'toggle or cycle the clicked value' },
+    { '<Space>', on_row('toggle'), desc = 'toggle / cycle', pane = 'options' },
     {
       '<CR>',
       function()
-        focus_pane(1)
+        local item = item_at_cursor()
+        if item and item.group and not item.option then
+          fold(item)
+        else
+          act(item, 'edit')
+        end
       end,
-      desc = 'go to the Options',
-      pane = 'languages',
+      desc = 'edit / fold',
+      pane = 'options',
     },
+    { 'l', on_row('next'), desc = 'next value', pane = 'options' },
+    { 'h', on_row('prev'), desc = 'previous value', pane = 'options' },
+    { 'x', on_row('reset'), desc = 'reset to the default', pane = 'options' },
+    {
+      'za',
+      function()
+        fold(item_at_cursor())
+      end,
+      desc = 'fold a Group',
+      pane = 'options',
+    },
+    {
+      'f',
+      function()
+        vim.ui.input({ prompt = 'Filter the Options: ', default = assert(state).query }, function(query)
+          if query ~= nil and state then
+            query = vim.trim(query)
+            filter(query ~= '' and query or nil)
+          end
+        end)
+      end,
+      desc = 'filter every Tab',
+      pane = 'options',
+    },
+    {
+      'F',
+      function()
+        filter(nil)
+      end,
+      desc = 'clear the filter',
+      pane = 'options',
+    },
+    { '<LeftRelease>', left_click, desc = 'edit the clicked value', pane = 'options' },
+    { '<CR>', focus_options, desc = 'go to the Options', pane = 'languages' },
   }
 
   ---@param pane string
@@ -387,7 +545,7 @@ function M.new(deps)
     end
     local lines = {}
     for _, key in ipairs(keys) do
-      if not key.pane or key.pane == pane then
+      if (not key.pane or key.pane == pane) and not key[1]:find('Mouse') and not key[1]:find('Release') then
         table.insert(lines, ('%-8s %s'):format(key[1], key.desc))
       end
     end
@@ -406,45 +564,62 @@ function M.new(deps)
       enter = true,
       keys = { q = 'close', ['<Esc>'] = 'close', ['g?'] = 'close' },
       on_close = function()
-        local win = win_of('options')
-        if state == s and win then
-          vim.api.nvim_set_current_win(win)
+        if state == s then
+          focus_options()
         end
       end,
     })
   end
 
-  ---@param opts? codestyle.MenuOpts
-  local function open(opts)
-    opts = opts or {}
-    local has_snacks, snacks = pcall(require, 'snacks')
-    if not has_snacks then
-      deps.notices.report(vim.log.levels.ERROR, 'always', 'menu', 'the Menu needs snacks.nvim; install it')
-      return
-    end
-    if state then
-      local win = win_of('options')
-      if win then
-        vim.api.nvim_set_current_win(win)
-      end
-      return
-    end
-    local buf = vim.api.nvim_get_current_buf()
-    local root = repo.root(buf)
-    local scope = opts.scope or ((root and vim.uv.fs_stat(deps.store.path('project', root))) and 'project' or 'global')
-    local draft, broken = deps.draft(scope, root)
-    if not draft then
-      ---@cast broken codestyle.BrokenFile
-      deps.notices.report(
-        vim.log.levels.ERROR,
-        'always',
-        'menu',
-        ('%s:%d: %s; the Menu cannot open this Code Style'):format(broken.path, broken.line, broken.message)
-      )
-      return
-    end
-    local choice = deps.selector.choose(buf)
+  local mount ---@type fun(draft: codestyle.Draft, place: codestyle.menu.Place)
 
+  --- Takes the Menu down. The layout is closed unless it closed itself.
+  ---@param s codestyle.menu.State
+  local function unmount(s)
+    state = nil
+    click_handler = nil
+    s.unsubscribe()
+    s.preview.detach()
+    if not s.layout.closed then
+      s.layout:close()
+    end
+  end
+
+  --- Asks what to do with unsaved changes: Save / Discard / Cancel.
+  ---@param s codestyle.menu.State
+  ---@param on_closed fun() runs when the changes are saved or discarded
+  ---@param on_cancel fun()
+  local function ask(s, on_closed, on_cancel)
+    vim.ui.select({ 'Save', 'Discard', 'Cancel' }, {
+      prompt = ('The Draft has unsaved changes. Save them to %s?'):format(path_of(s)),
+    }, function(choice)
+      if choice == 'Save' then
+        local ok, problem = s.draft.save()
+        if ok then
+          deps.notices.report(vim.log.levels.INFO, 'always', 'menu', 'saved ' .. path_of(s))
+          on_closed()
+        else
+          deps.notices.report(
+            vim.log.levels.ERROR,
+            'always',
+            'menu',
+            ('%s was not saved: %s'):format(path_of(s), problem)
+          )
+          on_cancel()
+        end
+      elseif choice == 'Discard' then
+        s.draft.discard()
+        on_closed()
+      else
+        on_cancel()
+      end
+    end)
+  end
+
+  ---@param draft codestyle.Draft
+  ---@param place codestyle.menu.Place
+  mount = function(draft, place)
+    local snacks = require('snacks')
     local bufs = { languages = scratch('languages'), options = scratch('options'), preview = scratch('preview') }
     local pane_wo = { number = false, relativenumber = false, signcolumn = 'no', foldcolumn = '0', wrap = false }
     local wins = {
@@ -475,6 +650,7 @@ function M.new(deps)
         ),
       }),
     }
+    local s ---@type codestyle.menu.State
     local layout = snacks.layout.new({
       show = false,
       wins = wins,
@@ -500,22 +676,35 @@ function M.new(deps)
         self.root.opts.footer = footer()
       end,
       on_update = function()
-        if state and state.layout and not state.layout.closed then
+        if state == s and not s.layout.closed then
           render_options()
-          render_marker(state)
+          render_marker(s)
         end
       end,
       on_close = function()
-        menu.close()
+        -- A window of the Menu closed some other way than `q`, such as
+        -- `:close`: the changes are asked about, and Cancel opens it again.
+        if state == s then
+          unmount(s)
+          if draft.modified() then
+            ask(s, function() end, function()
+              mount(draft, s)
+            end)
+          end
+        end
       end,
     })
 
-    local s = {
+    -- `preview` and `unsubscribe` follow: both need `s`.
+    ---@diagnostic disable-next-line: missing-fields
+    s = {
       draft = draft,
       layout = layout,
       bufs = bufs,
-      language = choice and choice.language or general.id,
-      tab = {},
+      language = place.language,
+      tab = place.tab,
+      folded = place.folded,
+      query = place.query,
     }
     s.preview = deps.preview.attach(draft, {
       buf = bufs.preview,
@@ -543,7 +732,7 @@ function M.new(deps)
     render_languages()
     render_options()
     show_preview()
-    vim.api.nvim_set_current_win(assert(win_of('options')))
+    focus_options()
     vim.api.nvim_create_autocmd('CursorMoved', {
       buffer = bufs.languages,
       callback = function()
@@ -554,6 +743,43 @@ function M.new(deps)
         end
       end,
     })
+    vim.api.nvim_create_autocmd('CursorMoved', {
+      buffer = bufs.options,
+      callback = function()
+        if state == s and s.query then
+          show_preview()
+        end
+      end,
+    })
+  end
+
+  ---@param opts? codestyle.MenuOpts
+  local function open(opts)
+    opts = opts or {}
+    if not pcall(require, 'snacks') then
+      deps.notices.report(vim.log.levels.ERROR, 'always', 'menu', 'the Menu needs snacks.nvim; install it')
+      return
+    end
+    if state then
+      focus_options()
+      return
+    end
+    local buf = vim.api.nvim_get_current_buf()
+    local root = repo.root(buf)
+    local scope = opts.scope or ((root and vim.uv.fs_stat(deps.store.path('project', root))) and 'project' or 'global')
+    local draft, broken = deps.draft(scope, root)
+    if not draft then
+      ---@cast broken codestyle.BrokenFile
+      deps.notices.report(
+        vim.log.levels.ERROR,
+        'always',
+        'menu',
+        ('%s:%d: %s; the Menu cannot open this Code Style'):format(broken.path, broken.line, broken.message)
+      )
+      return
+    end
+    local choice = deps.selector.choose(buf)
+    mount(draft, { language = choice and choice.language or general.id, tab = {}, folded = {} })
   end
 
   menu = {
@@ -563,11 +789,15 @@ function M.new(deps)
       if not s then
         return
       end
-      state = nil
-      click_handler = nil
-      s.unsubscribe()
-      s.preview.detach()
-      s.layout:close()
+      if s.draft.modified() then
+        ask(s, function()
+          if state == s then
+            unmount(s)
+          end
+        end, function() end)
+      else
+        unmount(s)
+      end
     end,
     click_tab = M.click_tab,
     help = help,
