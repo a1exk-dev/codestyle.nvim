@@ -1,0 +1,266 @@
+{
+ "default/attrs.html": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/attrs.html": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/attrs.html": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "php8/attrs.html": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "default/blade.blade.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/blade.blade.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/blade.blade.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "php8/blade.blade.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "default/heredoc.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/heredoc.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/heredoc.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "php8/heredoc.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "default/inline.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/inline.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/inline.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "php8/inline.php": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "default/vue.vue": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": false
+ },
+ "js8_css2/vue.vue": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": false
+ },
+ "html2_vue4_blade2/vue.vue": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": false
+ },
+ "php8/vue.vue": {
+  "kind": "input",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": false
+ },
+ "default/ctl.blade.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/ctl.blade.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/ctl.blade.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "php8/ctl.blade.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "default/ctl.css": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/ctl.css": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/ctl.css": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "php8/ctl.css": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "default/ctl.html": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/ctl.html": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/ctl.html": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "php8/ctl.html": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "default/ctl.js": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/ctl.js": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/ctl.js": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "php8/ctl.js": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "default/ctl.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/ctl.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/ctl.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "php8/ctl.php": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "default/ctl.vue": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "js8_css2/ctl.vue": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ },
+ "html2_vue4_blade2/ctl.vue": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": true,
+  "ide_equals_cli": true
+ },
+ "php8/ctl.vue": {
+  "kind": "control",
+  "ide_changed_input": true,
+  "ide_differs_from_default": false,
+  "ide_equals_cli": true
+ }
+}
