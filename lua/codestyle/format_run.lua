@@ -1,9 +1,15 @@
--- The Format Run (ADR-0002, ADR-0007): the one run that formats real buffers,
--- the Preview and `codestyle.testing`. It runs the plugin's `before` steps,
--- then the Engine or the plugin's own `format(ctx)`, then the `after` steps,
--- with a new parse before each, and drops plugin edits outside the range.
+-- The Format Run (ADR-0002, ADR-0007, ADR-0018): the one run that formats
+-- real buffers, the Preview and `codestyle.testing`. It skips a file that Do
+-- not format matches, converts mixed line endings, then runs the plugin's
+-- `before` steps, the Engine or the plugin's own `format(ctx)`, and the
+-- `after` steps, with a new parse before each. It drops edits in marker
+-- regions and plugin edits outside the range, and at the end removes the
+-- trailing blanks of the lines it changed.
 
+local do_not_format = require('codestyle.do_not_format')
 local engine = require('codestyle.engine')
+local line_endings = require('codestyle.line_endings')
+local markers = require('codestyle.markers')
 local read_only = require('codestyle.read_only')
 local text = require('codestyle.text')
 
@@ -13,6 +19,8 @@ local text = require('codestyle.text')
 ---@field parser string
 ---@field code_style codestyle.CodeStyle
 ---@field range? codestyle.Range the whole lines to format, nil for the whole text
+---@field path? string the absolute path of the file, nil when it has none (the Preview)
+---@field root? string the folder that Do not format matches `path` from: the repo root or the working directory
 
 --- A notice for the caller to report through Notices.
 ---@class codestyle.Notice
@@ -25,11 +33,29 @@ local text = require('codestyle.text')
 ---@field lines string[] the formatted lines
 ---@field edits codestyle.Edit[] the minimal edits from the request's lines to `lines`, in text order
 ---@field notices codestyle.Notice[]
+---@field fileformat? 'dos' set when mixed line endings convert to CRLF; `lines` then hold no `\r`
 
 ---@class codestyle.FormatRun
 ---@field run fun(request: codestyle.FormatRequest): codestyle.FormatResult
 
 local M = {}
+
+--- The notice of a run that Do not format skips, or nil when no glob matches.
+---@param request codestyle.FormatRequest with a `path`
+---@param globs string[]
+---@return codestyle.Notice?
+local function do_not_format_notice(request, globs)
+  local path = request.root and vim.fs.relpath(request.root, request.path) or request.path --[[@as string]]
+  local glob = do_not_format.match(globs, path)
+  return glob
+    and {
+      level = vim.log.levels.INFO,
+      -- The path stands for the buffer: later runs in it are quiet.
+      scope = 'buffer',
+      key = request.path,
+      message = ('"%s" matches the Do not format pattern "%s"; it is not formatted'):format(path, glob),
+    }
+end
 
 ---@param deps { registry: codestyle.Registry }
 ---@return codestyle.FormatRun
@@ -37,10 +63,27 @@ function M.new(deps)
   ---@type codestyle.FormatRun
   return {
     run = function(request)
-      local formatter = deps.registry.load(request.language, 'formatter') --[[@as codestyle.Formatter]]
       local values = request.code_style.values(request.language)
-      local lines, range = request.lines, request.range
       local notices = {} ---@type codestyle.Notice[]
+
+      local skip = request.path and do_not_format_notice(request, values.general.do_not_format)
+      if skip then
+        return { lines = request.lines, edits = {}, notices = { skip } }
+      end
+
+      local formatter = deps.registry.load(request.language, 'formatter') --[[@as codestyle.Formatter]]
+      local spec = deps.registry.get(request.language) --[[@as codestyle.Spec]]
+      local converted, fileformat = line_endings.convert(request.lines)
+      local lines = converted
+      local range = request.range
+
+      local marker_regions, marker_problem = markers.new(values.general)
+      if marker_problem then
+        table.insert(
+          notices,
+          { level = vim.log.levels.WARN, scope = 'session', key = marker_problem, message = marker_problem }
+        )
+      end
 
       ---@return codestyle.FormatContext
       local function context()
@@ -55,10 +98,19 @@ function M.new(deps)
         }
       end
 
-      --- Applies edits inside the range, drops the others with a warning, and
+      --- Drops the edits in marker regions, applies the edits inside the
+      --- range, drops the others with a warning, and
       --- moves the end of the range by the lines that the edits add or remove.
       ---@param edits codestyle.Edit[]
       local function apply(edits)
+        if marker_regions then
+          -- Marker regions are found again in the text of each step, and their
+          -- edits are dropped without a notice: the plugin cannot know them.
+          local regions = read_only.new(marker_regions.regions(lines, spec.on_marker_in_region))
+          edits = vim.tbl_filter(function(edit)
+            return not regions.touches(edit)
+          end, edits)
+        end
         if range then
           local outside = read_only.new(read_only.outside(range))
           local inside = vim.tbl_filter(function(edit)
@@ -98,7 +150,11 @@ function M.new(deps)
         apply(step(context()))
       end
 
-      return { lines = lines, edits = text.diff(request.lines, lines), notices = notices }
+      local keep_key = spec.keep_indents_on_empty_lines
+      local keep = keep_key ~= nil and vim.tbl_get(values, unpack(vim.split(keep_key, '.', { plain = true }))) == true
+      lines = text.trim_changed(converted, lines, keep)
+
+      return { lines = lines, edits = text.diff(request.lines, lines), notices = notices, fileformat = fileformat }
     end,
   }
 end

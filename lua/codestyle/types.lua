@@ -44,6 +44,9 @@
 --- The key of the boolean Option that is PhpStorm's "Keep indents on empty lines", if the
 --- language has one. `:checkhealth codestyle` warns when editorconfig's trim would strip those indents.
 ---@field keep_indents_on_empty_lines? string
+--- True when the line of a formatter on-marker belongs to the marker region, so it keeps its
+--- column, as in HTML, XML and JSON (ADR-0018). By default that line is formatted.
+---@field on_marker_in_region? boolean
 ---@field presets? codestyle.Preset[] the "Set from…" list of the language (ADR-0006)
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
 

@@ -110,4 +110,26 @@ function M.diff(old, new)
   return edits
 end
 
+--- `new` with the trailing blanks removed from each line that differs from
+--- `old` (ADR-0018). Untouched lines keep theirs.
+---@param old string[]
+---@param new string[]
+---@param keep_blank_lines boolean keep a changed line that holds only blanks, the indent of "Keep indents on empty lines"
+---@return string[]
+function M.trim_changed(old, new, keep_blank_lines)
+  local a, b = table.concat(old, '\n') .. '\n', table.concat(new, '\n') .. '\n'
+  local hunks = diff(a, b, { result_type = 'indices' }) --[[@as integer[][] ]]
+  local result = vim.list_extend({}, new)
+  for _, hunk in ipairs(hunks) do
+    local b_line, b_count = hunk[3], hunk[4]
+    for index = b_line, b_line + b_count - 1 do
+      local line = result[index]
+      if not (keep_blank_lines and line:match('^[ \t]*$')) then
+        result[index] = line:gsub('[ \t]+$', '')
+      end
+    end
+  end
+  return result
+end
+
 return M
