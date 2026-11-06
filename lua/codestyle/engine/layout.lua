@@ -13,13 +13,17 @@
 -- line whose leading indent touches one keeps its indent; the pass places the
 -- leaves after them from where they are. A line's indent change is its own
 -- edit from column 0, so a range can free the indent of its first line.
+--
+-- Each Block has its own indent Options (ADR-0008): an Indent counts with the
+-- Options of its Block, and a line's indent is written with the tab Options
+-- of the line's first leaf.
 
 local M = {}
 
 ---@class codestyle.LayoutOptions
 ---@field spacing fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block): codestyle.Spacing?
----@field indent codestyle.IndentOptions
----@field right_margin integer the widest a line may be, in display columns
+---@field indent fun(block: codestyle.Block): codestyle.IndentOptions the indent Options of the Block (ADR-0008)
+---@field right_margin fun(block: codestyle.Block): integer the widest a line of the Block may be, in display columns
 ---@field read_only codestyle.ReadOnly the text that must not change
 
 --- One leaf and the Gap before it.
@@ -73,10 +77,37 @@ local function collect(root)
   return leaves, first_leaf
 end
 
+--- The display width of text that starts at column 0.
 ---@param text string
+---@param tab_size? integer
 ---@return integer
-local function width(text)
-  return vim.api.nvim_strwidth(text)
+local function width(text, tab_size)
+  if not tab_size or not text:find('\t') then
+    return vim.api.nvim_strwidth(text)
+  end
+  local col = 0
+  for char in text:gmatch('[^\t]*\t?') do
+    local tab = char:sub(-1) == '\t'
+    col = col + vim.api.nvim_strwidth(tab and char:sub(1, -2) or char)
+    if tab then
+      col = col + tab_size - col % tab_size
+    end
+  end
+  return col
+end
+
+--- The whitespace of a line's indent: tabs as far as whole tab stops go when
+--- the Options use tabs, then spaces.
+---@param col integer
+---@param options codestyle.IndentOptions
+---@return string
+local function render(col, options)
+  if not options.use_tab then
+    return (' '):rep(col)
+  end
+  local tab_size = options.tab_size or 4
+  local tabs = math.floor(col / tab_size)
+  return ('\t'):rep(tabs) .. (' '):rep(col - tabs * tab_size)
 end
 
 ---@param indent? codestyle.Indent
@@ -219,11 +250,11 @@ function M.edits(root, lines, options)
         line_first = index
         fixed = leaf.fixed_indent
         if fixed then
-          col = width(lines[start_row + 1]:sub(1, start_col))
+          col = width(lines[start_row + 1]:sub(1, start_col), options.indent(leaf.block).tab_size)
         else
           col = leaf.owner and line_indent[places[first_leaf[leaf.owner]].line] or 0
           for _, block in ipairs(leaf.chain) do
-            col = col + indent_columns(block.indent, options.indent)
+            col = col + indent_columns(block.indent, options.indent(block))
           end
         end
       else
@@ -257,10 +288,10 @@ function M.edits(root, lines, options)
         line = line + end_row - start_row
         line_indent[line] = line_indent[places[index].line]
         line_first = index
-        col = width(lines[end_row + 1]:sub(1, end_col))
+        col = width(lines[end_row + 1]:sub(1, end_col), options.indent(leaf.block).tab_size)
       end
 
-      if col > options.right_margin and start_row == end_row then
+      if col > options.right_margin(leaf.block) and start_row == end_row then
         for candidate = index, line_first + 1, -1 do
           local wrap = leaves[candidate].wraps[#leaves[candidate].wraps]
           if wrap and places[candidate].line_feeds == 0 then
@@ -321,11 +352,17 @@ function M.edits(root, lines, options)
         edit(prev_end_row, prev_end_col, start_row, 0, ('\n'):rep(place.line_feeds))
       end
       if not leaf.fixed_indent then
-        edit(start_row, 0, start_row, start_col, (' '):rep(place.col))
+        edit(start_row, 0, start_row, start_col, render(place.col, options.indent(leaf.block)))
       end
     elseif place.line_feeds > 0 then
       -- A new line in a Gap that had none.
-      edit(prev_end_row, prev_end_col, start_row, start_col, ('\n'):rep(place.line_feeds) .. (' '):rep(place.col))
+      edit(
+        prev_end_row,
+        prev_end_col,
+        start_row,
+        start_col,
+        ('\n'):rep(place.line_feeds) .. render(place.col, options.indent(leaf.block))
+      )
     elseif not place.keep then
       edit(prev_end_row, prev_end_col, start_row, start_col, (' '):rep(place.spaces))
     end

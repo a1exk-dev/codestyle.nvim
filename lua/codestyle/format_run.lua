@@ -8,6 +8,7 @@
 
 local do_not_format = require('codestyle.do_not_format')
 local engine = require('codestyle.engine')
+local language_context = require('codestyle.language_context')
 local line_endings = require('codestyle.line_endings')
 local markers = require('codestyle.markers')
 local read_only = require('codestyle.read_only')
@@ -63,7 +64,9 @@ function M.new(deps)
   ---@type codestyle.FormatRun
   return {
     run = function(request)
-      local values = request.code_style.values(request.language)
+      local languages = language_context.new({ registry = deps.registry, code_style = request.code_style })
+      local language = languages.get(request.language)
+      local values = language.values
       local notices = {} ---@type codestyle.Notice[]
 
       local skip = request.path and do_not_format_notice(request, values.general.do_not_format)
@@ -71,7 +74,7 @@ function M.new(deps)
         return { lines = request.lines, edits = {}, notices = { skip } }
       end
 
-      local formatter = deps.registry.load(request.language, 'formatter') --[[@as codestyle.Formatter]]
+      local formatter = language.formatter
       local spec = deps.registry.get(request.language) --[[@as codestyle.Spec]]
       local converted, fileformat = line_endings.convert(request.lines)
       local lines = converted
@@ -94,6 +97,7 @@ function M.new(deps)
           root = vim.treesitter.get_string_parser(source, request.parser):parse()[1]:root(),
           source = source,
           values = values,
+          uses = language.uses,
           range = range,
         }
       end
@@ -142,7 +146,7 @@ function M.new(deps)
       if formatter.format then
         apply(formatter.format(context()))
       else
-        local edits, engine_notices = engine.layout(context(), formatter)
+        local edits, engine_notices = engine.layout(context(), languages)
         vim.list_extend(notices, engine_notices)
         apply(edits)
       end

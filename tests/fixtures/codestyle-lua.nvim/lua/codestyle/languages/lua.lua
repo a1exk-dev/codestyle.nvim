@@ -7,9 +7,10 @@ return {
   id = 'lua',
   name = 'Lua',
   filetypes = { 'lua' },
-  parsers = { default = { 'lua' } },
-  -- For the `uses` checks of the broken fakes (ADR-0007).
-  exports = { version = 1 },
+  -- `broken` names no installed parser, for an Embed Point's `parser_key` (ADR-0015).
+  parsers = { default = { 'lua' }, broken = { 'nosuchparser' } },
+  -- For `uses` (ADR-0007): the fake `useslua` builds with the exported `build`.
+  exports = { version = 1, module = 'codestyle.languages.lua.exports' },
   options = {
     {
       key = 'spaces.around_assignment',

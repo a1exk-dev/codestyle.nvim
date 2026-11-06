@@ -63,6 +63,7 @@
 --- Within one version, only optional fields are added.
 ---@class codestyle.Exports
 ---@field version integer
+---@field module? string the module path of the exported handlers and rules, which a plugin that `uses` this one gets as `ctx.uses.<id>`
 
 --- The resolved Option values of one language, nested like the stored keys,
 --- with the `general` values under `general`.
@@ -77,6 +78,8 @@
 ---@field source string the text being formatted, lines joined by `\n`
 ---@field values codestyle.Values
 ---@field range? codestyle.Range the lines to format, nil for the whole text; the Core drops a step's edit outside it
+---@field uses table<string, table> the exported handlers of each language in `spec.uses`; their values are in `values.<id>` (ADR-0007)
+---@field fragment? string for an embedded part, the kind of code that the host's Embed Point names (ADR-0008)
 
 --- Whole lines of the text: rows 0-based, both ends included.
 ---@class codestyle.Range
@@ -93,6 +96,10 @@
 --- leave the Gap to the next rule. The first rule that gives a Spacing wins.
 --- `require('codestyle.spacing_builder')` writes such rules.
 ---@field spacing? fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block, values: codestyle.Values): codestyle.Spacing?
+--- The Indent of a child that the template merge puts under `parent`, also a
+--- Block of another language (ADR-0005). The first rule that gives one wins;
+--- with none, a child of the same language keeps its own Indent, another gets none.
+---@field child_indent? fun(parent: codestyle.Block, child: codestyle.Block, values: codestyle.Values): codestyle.Indent?
 
 --- A step that changes text, such as forced braces or letter case. The Core
 --- parses the text again after each step.
@@ -101,17 +108,24 @@
 --- The `formatter` module of a Language Plugin (ADR-0007). It gives `build`
 --- and `rules` for the Core engine, or `format` to replace the engine.
 ---@class codestyle.Formatter
----@field build? fun(ctx: codestyle.FormatContext): codestyle.Block
+--- The Block tree of `ctx.root`, with Embed Points (`require("codestyle.embed")`) where other
+--- languages are. For an embedded part (`ctx.fragment` set), nil when the plugin cannot build that kind.
+---@field build? fun(ctx: codestyle.FormatContext): codestyle.Block?
 ---@field rules? codestyle.Rule[] in order of priority
 ---@field before? codestyle.Step[] run in order before the engine
 ---@field after? codestyle.Step[] run in order after the engine
 --- Replaces the Core engine for the language: the edits for the whole text, or
 --- for the lines of `ctx.range`. Such a language has no Blocks.
 ---@field format? fun(ctx: codestyle.FormatContext): codestyle.Edit[]
---- The sizes of the Indent kinds; default 4 and 8.
+--- The sizes of the Indent kinds and the tabs; default 4 and 8, spaces. The
+--- template layers of a host's file use the host's (ADR-0005), and grafted
+--- code its own language's (ADR-0008).
 ---@field indent_options? fun(values: codestyle.Values): codestyle.IndentOptions
 --- The widest a line may be before a Wrap breaks it; default `general.hard_wrap_at`.
 ---@field right_margin? fun(values: codestyle.Values): integer
+--- For a host: true makes every Block of the file use the file's indent
+--- Options, also grafted code, as HTML's "Use HTML indents within <script>" (ADR-0008).
+---@field override_indent_options? fun(values: codestyle.Values): boolean
 
 --- One text change: replace the text from the start to the end position
 --- (rows 0-based, byte columns, end exclusive) with `text`.
