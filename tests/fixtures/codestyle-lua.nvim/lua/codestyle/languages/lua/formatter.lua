@@ -6,7 +6,8 @@
 -- Core's dropping of edits outside it shows. Other fixtures reuse this
 -- formatter with fewer Options, so it reads every value with a default.
 -- `build` keeps a copy of `ctx.values` in `_G.codestyle_test_values` and counts
--- its calls in `_G.codestyle_test_builds`, for tests.
+-- its calls in `_G.codestyle_test_builds`, for tests. It returns nil for the
+-- embedded fragment kind `expression`.
 
 local alignment = require('codestyle.alignment')
 local block = require('codestyle.block')
@@ -149,6 +150,10 @@ return {
     -- Lets a test read the values that the Core passes to a plugin.
     _G.codestyle_test_values = vim.deepcopy(ctx.values)
     _G.codestyle_test_builds = (_G.codestyle_test_builds or 0) + 1
+    if ctx.fragment == 'expression' then
+      -- A kind of embedded code that this plugin cannot build (ADR-0008).
+      return nil
+    end
     return build_node(ctx.root, ctx.values)
   end,
   indent_options = function(values)

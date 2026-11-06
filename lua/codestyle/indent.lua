@@ -12,6 +12,8 @@
 ---@class codestyle.IndentOptions
 ---@field size integer the columns of a `normal` Indent
 ---@field continuation integer the columns of a `continuation` Indent
+---@field use_tab? boolean write a line's indent with tabs, as far as whole tab stops go; default false
+---@field tab_size? integer the columns of a tab; default 4
 
 local M = {}
 

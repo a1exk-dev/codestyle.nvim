@@ -9,6 +9,7 @@
 
 local do_not_format = require('codestyle.do_not_format')
 local engine = require('codestyle.engine')
+local language_context = require('codestyle.language_context')
 local line_endings = require('codestyle.line_endings')
 local markers = require('codestyle.markers')
 local read_only = require('codestyle.read_only')
@@ -70,7 +71,15 @@ function M.new(deps)
   ---@type codestyle.FormatRun
   return {
     run = function(request)
-      local values = request.code_style.values(request.language)
+      local languages = language_context.new({ registry = deps.registry, code_style = request.code_style })
+      -- Getting the language loads its formatter: the first call into the
+      -- plugin's code.
+      local got, language = pcall(languages.get, request.language)
+      if not got then
+        return nil, { language = request.language, message = tostring(language) }
+      end
+      ---@cast language codestyle.Language
+      local values = language.values
       local notices = {} ---@type codestyle.Notice[]
 
       local skip = request.path and do_not_format_notice(request, values.general.do_not_format)
@@ -100,6 +109,7 @@ function M.new(deps)
           root = vim.treesitter.get_string_parser(source, request.parser):parse()[1]:root(),
           source = source,
           values = values,
+          uses = language.uses,
           range = range,
         }
       end
@@ -142,17 +152,17 @@ function M.new(deps)
         lines = text.apply(lines, edits)
       end
 
-      -- Every call into the plugin's code: loading the formatter, its steps,
-      -- and the engine, which calls `build` and the rules.
+      -- The rest of the plugin's code: its steps, and the engine, which
+      -- calls `build`, the rules and the formatters of Embedded Languages.
+      local formatter = language.formatter
       local ok, err = pcall(function()
-        local formatter = deps.registry.load(request.language, 'formatter') --[[@as codestyle.Formatter]]
         for _, step in ipairs(formatter.before or {}) do
           apply(step(context()))
         end
         if formatter.format then
           apply(formatter.format(context()))
         else
-          local edits, engine_notices = engine.layout(context(), formatter)
+          local edits, engine_notices = engine.layout(context(), languages)
           vim.list_extend(notices, engine_notices)
           apply(edits)
         end

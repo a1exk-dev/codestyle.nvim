@@ -100,7 +100,9 @@ function M.new(deps)
       vim.bo[buf].fileformat = result.fileformat
     end
     for _, notice in ipairs(result.notices) do
-      deps.notices.report(notice.level, notice.scope, notice.key, notice.message)
+      -- A `buffer` notice is once per buffer and its key.
+      local key = notice.scope == 'buffer' and ('%d:%s'):format(buf, notice.key) or notice.key
+      deps.notices.report(notice.level, notice.scope, key, notice.message)
     end
     return result
   end

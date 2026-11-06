@@ -3,7 +3,9 @@
 -- clashing spec with one warning, and requires a plugin's lazy modules only
 -- when they are needed.
 
----@alias codestyle.SpecPart 'formatter'
+---@alias codestyle.SpecPart
+---| 'formatter' the module that `spec.formatter` names
+---| 'exports' the module that `spec.exports.module` names, or `{}` when it names none
 
 ---@alias codestyle.StatusKind
 ---| 'ok'
@@ -158,7 +160,12 @@ function M.new(deps)
       return entry and entry.status
     end,
     load = function(id, part)
-      return require(discover()[id].spec[part])
+      local spec = discover()[id].spec
+      if part == 'exports' then
+        local module = spec.exports and spec.exports.module
+        return module and require(module) or {}
+      end
+      return require(spec[part])
     end,
   }
 end
