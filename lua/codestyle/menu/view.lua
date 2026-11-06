@@ -83,12 +83,16 @@ end
 ---@field name string
 ---@field changed integer the `•N` count of the Draft
 
----@param opts { scope: codestyle.Scope, languages: codestyle.menu.Language[], kept: codestyle.KeptLanguage[] }
+---@param opts { scope: codestyle.Scope, languages: codestyle.menu.Language[], kept: codestyle.KeptLanguage[], project_xml?: boolean }
 ---@return codestyle.menu.View
 function M.languages(opts)
   local b = M.builder()
   b.add(opts.scope == 'project' and 'Project Code Style' or 'Global Code Style', 'Title')
   b.line()
+  if opts.project_xml then
+    b.add('Project.xml found [i] import', 'DiagnosticHint')
+    b.line()
+  end
   b.line()
   for _, language in ipairs(opts.languages) do
     b.add(language.name)

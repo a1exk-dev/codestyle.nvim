@@ -10,6 +10,7 @@ local arrangement = require('codestyle.arrangement')
 local arrangement_edit = require('codestyle.menu.arrangement_edit')
 local arrangement_rows = require('codestyle.menu.arrangement_rows')
 local code_style = require('codestyle.code_style')
+local draft_actions = require('codestyle.menu.draft_actions')
 local edit = require('codestyle.menu.edit')
 local general = require('codestyle.general')
 local repo = require('codestyle.repo')
@@ -17,6 +18,7 @@ local view = require('codestyle.menu.view')
 
 ---@class codestyle.MenuOpts
 ---@field scope? codestyle.Scope the Code Style to edit; default the one of the current buffer
+---@field import? string|true imports a Scheme XML once the Menu is open: this path, or `true` for the repo's `Project.xml` or a path the user gives (ADR-0010)
 
 ---@class codestyle.Menu
 ---@field open fun(opts?: codestyle.MenuOpts) opens the Menu, or focuses it when it is open
@@ -122,7 +124,7 @@ local function inside(span, col)
   return span ~= nil and col >= span.start_col and col < span.end_col
 end
 
----@param deps { registry: codestyle.Registry, store: codestyle.Store, selector: codestyle.Selector, notices: codestyle.Notices, preview: codestyle.Preview, draft: fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? }
+---@param deps { registry: codestyle.Registry, store: codestyle.Store, selector: codestyle.Selector, notices: codestyle.Notices, preview: codestyle.Preview, presets: codestyle.Presets, scheme_xml: codestyle.SchemeXml, draft: fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? }
 ---@return codestyle.Menu
 function M.new(deps)
   --- What the Menu shows, kept when the Menu opens again on the same Draft.
@@ -131,6 +133,7 @@ function M.new(deps)
   ---@field tab table<string, integer> the current Tab of each language
   ---@field folded table<string, table<string, true>> the folded Groups of each language
   ---@field query? string the filter of the Options pane
+  ---@field root? string the repo root of the buffer that the Menu was opened from
 
   ---@class codestyle.menu.State: codestyle.menu.Place
   ---@field draft codestyle.Draft
@@ -189,12 +192,19 @@ function M.new(deps)
     return vim.fn.fnamemodify(deps.store.path(s.draft.scope, s.draft.root), ':~')
   end
 
+  local actions ---@type codestyle.menu.DraftActions
+
   local function render_languages()
     local s = assert(state)
     local entries = vim.tbl_map(function(id)
       return { id = id, name = spec_of(id).name, changed = s.draft.changed(id) }
     end, language_ids())
-    s.languages_view = view.languages({ scope = s.draft.scope, languages = entries, kept = s.draft.kept_languages() })
+    s.languages_view = view.languages({
+      scope = s.draft.scope,
+      languages = entries,
+      kept = s.draft.kept_languages(),
+      project_xml = actions.project_xml_found(),
+    })
     draw(s.bufs.languages, s.languages_view)
     local win = win_of('languages')
     if win and vim.api.nvim_get_current_win() ~= win then
@@ -543,6 +553,34 @@ function M.new(deps)
       end,
       desc = 'list the keys',
     },
+    {
+      's',
+      function()
+        actions.switch_scope()
+      end,
+      desc = 'switch between Global and Project',
+    },
+    {
+      'p',
+      function()
+        actions.set_from()
+      end,
+      desc = 'set from a Preset',
+    },
+    {
+      'i',
+      function()
+        actions.import()
+      end,
+      desc = 'import a Scheme XML',
+    },
+    {
+      'R',
+      function()
+        actions.report()
+      end,
+      desc = 'the report of the last import',
+    },
     { '<RightMouse>', right_click, desc = 'toggle or cycle the clicked value' },
     { '<Space>', on_row('toggle'), desc = 'toggle / cycle', pane = 'options' },
     {
@@ -647,7 +685,7 @@ function M.new(deps)
       title = 'Keys',
       border = 'rounded',
       width = 40,
-      height = #lines,
+      height = math.min(#lines, vim.o.lines - 4),
       zindex = 100,
       backdrop = false,
       enter = true,
@@ -704,6 +742,43 @@ function M.new(deps)
       end
     end)
   end
+
+  actions = draft_actions.new({
+    presets = deps.presets,
+    scheme_xml = deps.scheme_xml,
+    store = deps.store,
+    draft = deps.draft,
+    notices = deps.notices,
+    host = {
+      draft = function()
+        return state and state.draft
+      end,
+      language = function()
+        local id = assert(state).language
+        return id, spec_of(id).name
+      end,
+      name = function(id)
+        return spec_of(id).name
+      end,
+      root = function()
+        return assert(state).root
+      end,
+      focus = focus_options,
+      swap = function(draft)
+        local s = assert(state)
+        unmount(s)
+        mount(draft, s)
+      end,
+      settle = function(after)
+        local s = assert(state)
+        if s.draft.modified() then
+          ask(s, after, function() end)
+        else
+          after()
+        end
+      end,
+    },
+  })
 
   ---@param draft codestyle.Draft
   ---@param place codestyle.menu.Place
@@ -794,6 +869,7 @@ function M.new(deps)
       tab = place.tab,
       folded = place.folded,
       query = place.query,
+      root = place.root,
     }
     s.preview = deps.preview.attach(draft, {
       buf = bufs.preview,
@@ -852,8 +928,12 @@ function M.new(deps)
       deps.notices.report(vim.log.levels.ERROR, 'always', 'menu', 'the Menu needs snacks.nvim; install it')
       return
     end
+    local path = type(opts.import) == 'string' and opts.import --[[@as string]] or nil
     if state then
       focus_options()
+      if opts.import then
+        actions.import(path)
+      end
       return
     end
     local buf = vim.api.nvim_get_current_buf()
@@ -871,7 +951,10 @@ function M.new(deps)
       return
     end
     local choice = deps.selector.choose(buf)
-    mount(draft, { language = choice and choice.language or general.id, tab = {}, folded = {} })
+    mount(draft, { language = choice and choice.language or general.id, tab = {}, folded = {}, root = root })
+    if opts.import then
+      actions.import(path)
+    end
   end
 
   menu = {

@@ -47,6 +47,9 @@ function M.get()
       return require('codestyle.draft').new({ store = store, registry = registry, scope = scope, root = root })
     end
     local keys = require('codestyle.keys').new({ settings = settings.get })
+    local presets =
+      require('codestyle.presets').new({ registry = registry, settings = settings.get, notices = notices })
+    local scheme_xml = require('codestyle.scheme_xml').new({ registry = registry, notices = notices })
     local conform = require('codestyle.conform').new({ format_api = format_api })
     instance = {
       format = format_api.format,
@@ -72,14 +75,16 @@ function M.get()
         selector = selector,
         notices = notices,
         draft = draft,
+        presets = presets,
+        scheme_xml = scheme_xml,
         preview = require('codestyle.preview').new({
           registry = registry,
           format_run = format_run,
           notices = notices,
         }),
       }),
-      presets = require('codestyle.presets').new({ registry = registry, settings = settings.get, notices = notices }),
-      scheme_xml = require('codestyle.scheme_xml').new({ registry = registry, notices = notices }),
+      presets = presets,
+      scheme_xml = scheme_xml,
     }
   end
   return instance

@@ -6,11 +6,11 @@ vim.g.loaded_codestyle = true
 vim.api.nvim_create_user_command('Codestyle', function(opts)
   require('codestyle.command').run(opts)
 end, {
-  nargs = '?',
+  nargs = '*',
   range = true,
-  desc = 'codestyle.nvim: open the Menu, or format or rearrange the buffer or the range',
-  complete = function(arg_lead)
-    return require('codestyle.command').complete(arg_lead)
+  desc = 'codestyle.nvim: open the Menu, format or rearrange the buffer or the range, or import a Scheme XML',
+  complete = function(arg_lead, cmd_line)
+    return require('codestyle.command').complete(arg_lead, cmd_line)
   end,
 })
 
