@@ -22,6 +22,7 @@ local tree = require('codestyle.tree')
 ---@field message string
 
 ---@class codestyle.Store
+---@field path fun(scope: codestyle.Scope, root?: string): string the file of the scope
 ---@field load fun(scope: codestyle.Scope, root?: string): codestyle.CodeStyle?, codestyle.BrokenFile? `root` is the repo root of the `project` scope
 ---@field for_buffer fun(buf: integer): codestyle.CodeStyle?, codestyle.Scope the saved Code Style that formats the buffer; nil, with one ERROR, when its file is broken
 ---@field save fun(scope: codestyle.Scope, root: string?, style: codestyle.CodeStyle): boolean, string? writes the file; false and why when it cannot
@@ -177,6 +178,7 @@ function M.new(deps)
 
   ---@type codestyle.Store
   return {
+    path = path_of,
     load = load,
     save = function(scope, root, style)
       local path = path_of(scope, root)

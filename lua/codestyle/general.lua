@@ -6,6 +6,7 @@
 ---@field id 'general'
 ---@field name string
 ---@field options codestyle.OptionSpec[]
+---@field tabs codestyle.Tab[] PhpStorm's two Tabs of the General page (ADR-0018)
 
 ---@type codestyle.GeneralSpec
 return {
@@ -27,6 +28,20 @@ return {
       type = 'boolean',
       default = false,
       label = 'Enable regular expressions in formatter markers',
+    },
+  },
+  tabs = {
+    { name = 'General', rows = { 'hard_wrap_at' } },
+    {
+      name = 'Formatter',
+      rows = {
+        'do_not_format',
+        {
+          label = 'Formatter markers',
+          option = 'markers.enabled',
+          rows = { 'markers.off', 'markers.on', 'markers.regex' },
+        },
+      },
     },
   },
 }

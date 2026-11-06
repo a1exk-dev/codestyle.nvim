@@ -48,7 +48,26 @@
 --- column, as in HTML, XML and JSON (ADR-0018). By default that line is formatted.
 ---@field on_marker_in_region? boolean
 ---@field presets? codestyle.Preset[] the "Set from…" list of the language (ADR-0006)
+---@field tabs? codestyle.Tab[] the Menu's Tabs of the language, in order; without them the Menu shows one Tab with every Option
+---@field syntax? string the Vim `syntax` that highlights the Preview when no parser of `parsers.default` is installed
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
+
+--- One page of a language's Options in the Menu (ADR-0004, ADR-0007). Tabs
+--- only show the Options: the stored keys never name a Tab (ADR-0003).
+---@class codestyle.Tab
+---@field name string
+---@field rows codestyle.TabRow[]
+---@field sample? string[] the Preview sample of the Tab, formatted with `parsers.default`; nil for no Preview
+
+--- A row of a Tab: an Option key, or a Group of rows.
+---@alias codestyle.TabRow string|codestyle.Group
+
+--- A labelled set of rows in a Tab. It may have an Option of its own, such as
+--- a wrap choice whose children are its alignment Options.
+---@class codestyle.Group
+---@field label string
+---@field option? string the key of the Group's own Option
+---@field rows codestyle.TabRow[]
 
 --- A named set of Option values (ADR-0006). `values` is keyed by language id,
 --- its own, `general` or another language's, and nested like a Code Style
