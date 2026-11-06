@@ -2,6 +2,8 @@
 -- combined parse, and the text that the embedded plugin sees. The Engine and
 -- Arrangement share them, so an embedded plugin gets the same `ctx` from both.
 
+local text = require('codestyle.text')
+
 local M = {}
 
 --- The text of the lines with every byte outside the ranges turned into a
@@ -26,7 +28,7 @@ function M.mask(lines, ranges)
       end
     end
   end
-  return table.concat(masked, '\n')
+  return text.source(masked)
 end
 
 --- One parse of all the parts as one region: it sees only their text, with

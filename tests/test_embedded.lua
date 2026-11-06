@@ -58,6 +58,15 @@ T['graft']['a fenced Lua body is formatted by fake lua with its own Code Style a
   expect.equality(child:notices(), {})
 end
 
+T['graft']['a closing fence on the last line ends the fenced body, and no final line is added'] = function()
+  -- A buffer has an implicit final newline: `markdown` reads the last
+  -- line's fence as a fence only when the parsed text ends with one.
+  local lines = { '```lua', 'x=1', '  ```' }
+
+  expect.equality(format({ lua = lua }, 'markdown', lines), { '```lua', 'x = 1', '```' })
+  expect.equality(child:notices(), {})
+end
+
 T['graft']["the host's override flag switches the body to the file's indent Options"] = function()
   local lines = { '```lua', 'if a then', 'x=1', 'end', '```', '' }
   local markdown = { indent = { same_in_whole_file = true, size = 3 } }

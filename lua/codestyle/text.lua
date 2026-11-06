@@ -5,6 +5,16 @@ local M = {}
 
 local diff = vim.text and vim.text.diff or vim.diff ---@diagnostic disable-line: deprecated
 
+--- The text that a parser reads for the lines. A buffer has an implicit
+--- final newline, and a parser such as `markdown` reads the last line
+--- differently without one (a closing fence would be code), so the text
+--- ends with one (ADR-0018 never adds it to the output).
+---@param lines string[]
+---@return string
+function M.source(lines)
+  return table.concat(lines, '\n') .. '\n'
+end
+
 --- The lines with the edits applied, back to front. The edits must not
 --- overlap. Of two edits at one position, the later one in the list is the
 --- later one in the text.

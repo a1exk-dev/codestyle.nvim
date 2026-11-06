@@ -117,7 +117,7 @@ function M.run(request)
   local host = request.languages.get(request.language)
   local stored, plugin = plan(request.language)
   if stored and plugin then
-    local source = table.concat(lines, '\n')
+    local source = text.source(lines)
     arrange(
       context(host, stored, {
         parser = request.parser,
@@ -136,7 +136,7 @@ function M.run(request)
     return id ~= request.language and spec ~= nil and spec.arrangement ~= nil
   end)
   if host.formatter.build and others then
-    local source = table.concat(lines, '\n')
+    local source = text.source(lines)
     local ctx = {
       language = request.language,
       parser = request.parser,
@@ -160,7 +160,7 @@ function M.run(request)
         part_stored, part_plugin = plan(language.id)
       end
       if language and part_stored and part_plugin then
-        local part_source = table.concat(lines, '\n')
+        local part_source = text.source(lines)
         arrange(
           context(language, part_stored, {
             parser = language.parser,

@@ -170,7 +170,7 @@ function M.new(deps)
 
       ---@return codestyle.FormatContext
       local function context()
-        local source = table.concat(lines, '\n')
+        local source = text.source(lines)
         return {
           language = request.language,
           parser = request.parser,
