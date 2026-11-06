@@ -21,6 +21,6 @@ return {
   {
     name = 'conform.nvim',
     url = 'https://github.com/stevearc/conform.nvim',
-    commit = '3543d000dafbc41cc7761d860cfdb24e82154f75', -- v9.1.0
+    commit = '016802de402556da54c36bd7359b441266b01cdd', -- master after v9.1.0: vim.text.diff on Neovim 0.12
   },
 }

@@ -19,6 +19,8 @@ return {
       default = false,
       label = 'Assignment operators (=)',
     },
+    { key = 'indent.keep_on_empty_lines', type = 'boolean', default = false, label = 'Keep indents on empty lines' },
   },
+  keep_indents_on_empty_lines = 'indent.keep_on_empty_lines',
   formatter = 'codestyle.languages.lua.formatter',
 }

@@ -23,6 +23,9 @@
 ---@field uses? table<string, integer> language id → the export version this plugin needs from that plugin (ADR-0007)
 ---@field exports? codestyle.Exports what this plugin offers to plugins that use it (ADR-0007)
 ---@field options codestyle.OptionSpec[]
+--- The key of the boolean Option that is PhpStorm's "Keep indents on empty lines", if the
+--- language has one. `:checkhealth codestyle` warns when editorconfig's trim would strip those indents.
+---@field keep_indents_on_empty_lines? string
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
 
 --- What a Language Plugin offers to the plugins that `uses` it (ADR-0007).

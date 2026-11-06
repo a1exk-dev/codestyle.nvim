@@ -5,6 +5,8 @@
 ---@class codestyle.Settings
 --- Filetype → language id, or `false` to turn codestyle off for the filetype (ADR-0015).
 ---@field filetypes? table<string, string|false>
+--- `false` leaves the default key `<leader>cf` unmapped (ADR-0014). Default true.
+---@field keys? boolean
 
 ---@class codestyle.SettingsStore
 ---@field get fun(): codestyle.Settings
