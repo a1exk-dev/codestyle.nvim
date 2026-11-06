@@ -11,6 +11,8 @@ local M = {}
 ---@field formatexpr codestyle.Formatexpr
 ---@field conform codestyle.ConformAdapter
 ---@field health codestyle.Health
+---@field draft fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? opens a Draft of the scope's saved Code Style
+---@field presets codestyle.Presets
 
 ---@type codestyle.Instance?
 local instance
@@ -55,6 +57,10 @@ function M.get()
         settings.set(new)
         keys.apply()
       end,
+      draft = function(scope, root)
+        return require('codestyle.draft').new({ store = store, registry = registry, scope = scope, root = root })
+      end,
+      presets = require('codestyle.presets').new({ registry = registry, settings = settings.get, notices = notices }),
     }
   end
   return instance

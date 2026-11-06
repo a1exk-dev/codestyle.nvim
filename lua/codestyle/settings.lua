@@ -7,6 +7,11 @@
 ---@field filetypes? table<string, string|false>
 --- `false` leaves the default key `<leader>cf` unmapped (ADR-0014). Default true.
 ---@field keys? boolean
+--- The user's own Presets, shown after the plugin's in the "Set from…" list of `language` (ADR-0006).
+---@field presets? codestyle.UserPreset[]
+
+---@class codestyle.UserPreset: codestyle.Preset
+---@field language string the language id whose "Set from…" list shows the Preset, `general` included
 
 ---@class codestyle.SettingsStore
 ---@field get fun(): codestyle.Settings

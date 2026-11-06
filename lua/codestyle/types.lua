@@ -44,7 +44,17 @@
 --- The key of the boolean Option that is PhpStorm's "Keep indents on empty lines", if the
 --- language has one. `:checkhealth codestyle` warns when editorconfig's trim would strip those indents.
 ---@field keep_indents_on_empty_lines? string
+---@field presets? codestyle.Preset[] the "Set from…" list of the language (ADR-0006)
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
+
+--- A named set of Option values (ADR-0006). `values` is keyed by language id,
+--- its own, `general` or another language's, and nested like a Code Style
+--- file (`{ spaces = { around_assignment = true } }`); a dotted key
+--- (`['spaces.around_assignment'] = true`) works too. A Preset never sets
+--- Arrangement.
+---@class codestyle.Preset
+---@field name string
+---@field values table<string, table>
 
 --- What a Language Plugin offers to the plugins that `uses` it (ADR-0007).
 --- Within one version, only optional fields are added.
