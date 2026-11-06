@@ -123,6 +123,20 @@ function Child:lines(buf)
   return self.api.nvim_buf_get_lines(buf, 0, -1, true)
 end
 
+--- Wires the Core's shared modules in the child as `_G.core`, through the
+--- constructor that the editor and `codestyle.testing` build with: the Draft,
+--- Presets and the Scheme XML import (#50 "Other seams"). Its notices go to
+--- `vim.notify`. Idempotent within a case.
+function Child:services()
+  self.lua([[
+    _G.core = _G.core or require('codestyle.instance').new({
+      notify = function(message, level)
+        vim.notify(message, level)
+      end,
+    })
+  ]])
+end
+
 --- The `ctx.values` that the fake `lua` formatter got in the last format run.
 ---@return table
 function Child:plugin_values()

@@ -272,7 +272,8 @@ end
 
 T['runs']['saving drops an Arrangement that equals the default'] = function()
   global({ lua = { arrangement = { enabled = false } } })
-  child.lua([[_G.draft = require('codestyle.instance').get().draft('global')]])
+  child:services()
+  child.lua([[_G.draft = _G.core.draft('global')]])
 
   child.lua([[_G.draft.set_arrangement('lua', { enabled = true })]])
   child.lua([[_G.draft.save()]])
@@ -286,11 +287,11 @@ end
 T['runs']['the run returns the Slot and rule of each entry, at its row in the result'] = function()
   global({ lua = lua(rules({ { { is = { 'method' } }, { is = { 'field' } } } })) })
 
+  child:services()
   local matches = child.lua(
     [[
-    local instance = require('codestyle.instance').get()
-    local code_style = instance.draft('global').code_style()
-    return instance.format_run.run({
+    local code_style = _G.core.draft('global').code_style()
+    return _G.core.format_run.run({
       lines = ...,
       language = 'lua',
       parser = 'lua',

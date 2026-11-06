@@ -3,7 +3,6 @@
 -- undo step. One notice gives the totals; the report holds the details for
 -- the Menu's report buffer. On any error the Draft is untouched.
 
-local importer = require('codestyle.scheme_xml.importer')
 local reader = require('codestyle.scheme_xml.reader')
 
 --- The totals of an import, for its one notice.
@@ -36,11 +35,9 @@ local M = {}
 --- Where PhpStorm keeps a project's own Scheme XML, from the repo root.
 M.project_xml = '.idea/codeStyles/Project.xml'
 
----@param deps { registry: codestyle.Registry, notices: codestyle.Notices }
+---@param deps { importer: codestyle.SchemeImporter, notices: codestyle.Notices }
 ---@return codestyle.SchemeXml
 function M.new(deps)
-  local scheme_importer = importer.new({ registry = deps.registry })
-
   ---@param root? string
   ---@param path? string
   ---@return string?
@@ -78,7 +75,7 @@ function M.new(deps)
     local root, broken = reader.parse(text)
     local imported
     if root then
-      local ok, result, problem = pcall(scheme_importer.import, root)
+      local ok, result, problem = pcall(deps.importer.import, root)
       if not ok then
         return nil, ('%s: %s; nothing was imported'):format(path, tostring(result))
       end

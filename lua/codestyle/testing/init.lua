@@ -88,12 +88,14 @@ end
 ---@return codestyle.testing.Report
 function M.run(opts)
   local messages = {} ---@type string[]
-  local notices = require('codestyle.notices').new({
+  -- The same wiring as the editor's, with no user settings, and the
+  -- messages kept for the report.
+  local core = require('codestyle.instance').new({
     notify = function(message)
       table.insert(messages, message)
     end,
   })
-  local registry = require('codestyle.registry').new({ notices = notices, api = require('codestyle').api })
+  local registry = core.registry
   ---@type codestyle.testing.Report
   local report = { language = opts.language, ok = false, results = {}, counts = count({}), notices = messages }
 
@@ -104,15 +106,9 @@ function M.run(opts)
   end
   local checks = checks_of.new({
     registry = registry,
-    format_run = require('codestyle.format_run').new({ registry = registry }),
-    importer = require('codestyle.scheme_xml.importer').new({ registry = registry }),
-    presets = require('codestyle.presets').new({
-      registry = registry,
-      notices = notices,
-      settings = function()
-        return {}
-      end,
-    }),
+    format_run = core.format_run,
+    importer = core.importer,
+    presets = core.presets,
     language = opts.language,
     parser = parser,
   })

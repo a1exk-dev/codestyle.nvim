@@ -227,7 +227,7 @@ T['rule float']['o opens it for a new Slot below; closed with no condition, the 
   keys('q')
   expect.equality(M.pane_win(child, 'rule'), nil)
   expect.equality(rows()[10], '2 function')
-  expect.equality(child.lua_get([[require('codestyle.instance').get().menu ~= nil]]), true)
+  expect.equality(M.pane_win(child, 'options') ~= nil, true)
   keys('u')
   expect.equality(rows()[9], '1 field')
   expect.equality(messages(), {})

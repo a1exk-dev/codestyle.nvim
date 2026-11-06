@@ -21,7 +21,8 @@ local T = MiniTest.new_set({
 
 --- Opens the Draft of the Global Code Style in the child as `_G.draft`.
 local function open_draft()
-  child.lua("_G.draft = require('codestyle.instance').get().draft('global')")
+  child:services()
+  child.lua("_G.draft = _G.core.draft('global')")
 end
 
 --- Writes a Scheme XML file and returns its path.
@@ -39,7 +40,7 @@ end
 ---@param opts table `{ path?, root? }`
 ---@return table?, string?
 local function import(opts)
-  local results = child.lua("return { require('codestyle.instance').get().scheme_xml.import(_G.draft, ...) }", { opts })
+  local results = child.lua('return { _G.core.scheme_xml.import(_G.draft, ...) }', { opts })
   local report, message = results[1], results[2]
   return report ~= vim.NIL and report or nil, message ~= vim.NIL and message or nil
 end
