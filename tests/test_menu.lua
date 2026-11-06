@@ -172,6 +172,32 @@ T['the Preview follows the Draft'] = function()
   expect.equality(pane_lines('preview'), { 'x = 1', "name = 'codestyle'" })
 end
 
+T['the Preview keeps the parse of a sample whose text did not change'] = function()
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua' })
+  -- Every text that Tree-sitter parses from a string.
+  child.lua([[
+    _G.parsed = {}
+    local get_string_parser = vim.treesitter.get_string_parser
+    vim.treesitter.get_string_parser = function(source, ...)
+      table.insert(_G.parsed, source)
+      return get_string_parser(source, ...)
+    end
+  ]])
+  open_menu()
+  local sample = child.lua_get('_G.parsed[1]')
+  child.lua('_G.parsed = {}')
+
+  child.type_keys('l')
+  settle()
+
+  expect.equality(pane_lines('preview'), { 'x = 1', "name = 'codestyle'" })
+  expect.equality(vim.list_contains(child.lua_get('_G.parsed'), sample), false)
+  -- The next Draft gets its own output, not a kept one.
+  child.type_keys('l')
+  settle()
+  expect.equality(pane_lines('preview'), { 'x=1', "name='codestyle'" })
+end
+
 T['holding a value-changing key ends with the Preview on the latest Draft'] = function()
   child:open_buffer({ lines = { 'x=1' }, filetype = 'lua' })
   open_menu()

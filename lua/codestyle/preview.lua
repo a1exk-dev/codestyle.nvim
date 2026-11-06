@@ -4,7 +4,8 @@
 -- run with `vim.schedule`, so a held key skips values and the Preview always
 -- ends on the latest Draft. A run that fails (the Format Run catches the
 -- plugin's error) keeps the last good output and sets the failure marker; the
--- next good run clears it. On the Arrangement Tab (ADR-0012) each Arrangement
+-- next good run clears it. It keeps the parse of each text that did not
+-- change since the run before. On the Arrangement Tab (ADR-0012) each Arrangement
 -- Entry of the sample shows its Slot as dim virtual text, `–` for none, and
 -- the entries of the rule under the Menu's cursor are highlighted.
 
@@ -25,6 +26,8 @@
 
 ---@class codestyle.Preview
 ---@field attach fun(draft: codestyle.Draft, view: codestyle.PreviewView): codestyle.PreviewHandle
+
+local parse_cache = require('codestyle.parse_cache')
 
 local M = {}
 
@@ -82,6 +85,7 @@ function M.new(deps)
       local last_matches = {}
       local shown_matches = {} ---@type codestyle.ArrangementMatch[] the matches of the shown output
       local rule ---@type { slot: integer, rule: integer }?
+      local cache = parse_cache.new()
 
       --- The Slot of each entry, and the entries of the rule under the cursor.
       local function draw_slots()
@@ -160,11 +164,13 @@ function M.new(deps)
           view.status(('⚠ %s: no parser %s'):format(language, table.concat(spec.parsers.default or {}, ', ')))
           return
         end
+        cache.next_run()
         local result, failure = deps.format_run.run({
           lines = tab.sample,
           language = language,
           parser = parser,
           code_style = draft.code_style(),
+          cache = cache,
         })
         if result then
           local previous = last_good[tab]

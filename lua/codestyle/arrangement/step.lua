@@ -26,6 +26,7 @@ local text = require('codestyle.text')
 ---@field mode codestyle.ArrangementMode
 ---@field buf? integer the buffer whose LSP clients serve `ctx.lsp`
 ---@field notices codestyle.Notice[] gets the step's notices
+---@field parse fun(source: string, parser: string): TSNode parses the whole text, through the Preview's cache when it has one
 
 ---@class codestyle.ArrangementStepResult
 ---@field lines string[]
@@ -122,7 +123,7 @@ function M.run(request)
       context(host, stored, {
         parser = request.parser,
         source = source,
-        root = vim.treesitter.get_string_parser(source, request.parser):parse()[1]:root(),
+        root = request.parse(source, request.parser),
       }),
       stored,
       plugin
@@ -140,7 +141,7 @@ function M.run(request)
     local ctx = {
       language = request.language,
       parser = request.parser,
-      root = vim.treesitter.get_string_parser(source, request.parser):parse()[1]:root(),
+      root = request.parse(source, request.parser),
       source = source,
       values = host.values,
       uses = host.uses,

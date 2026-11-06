@@ -13,6 +13,7 @@ local engine = require('codestyle.engine')
 local language_context = require('codestyle.language_context')
 local line_endings = require('codestyle.line_endings')
 local markers = require('codestyle.markers')
+local parse_cache = require('codestyle.parse_cache')
 local read_only = require('codestyle.read_only')
 local text = require('codestyle.text')
 
@@ -27,6 +28,7 @@ local text = require('codestyle.text')
 ---@field arrangement? codestyle.ArrangementMode default `auto`
 ---@field buf? integer the buffer whose LSP clients Arrangement may ask; nil for the Preview
 ---@field timings? boolean measure each step, for the bench script (ADR-0016)
+---@field cache? codestyle.ParseCache the Preview's parse cache; nil parses every text
 
 --- A notice for the caller to report through Notices.
 ---@class codestyle.Notice
@@ -104,6 +106,7 @@ function M.new(deps)
         return unpack(results, 1, results.n)
       end
 
+      local parse = request.cache and request.cache.parse or parse_cache.parse
       local languages = language_context.new({ registry = deps.registry, code_style = request.code_style })
       -- Getting the language loads its formatter: the first call into the
       -- plugin's code.
@@ -149,6 +152,7 @@ function M.new(deps)
           mode = request.arrangement or 'auto',
           buf = request.buf,
           notices = notices,
+          parse = parse,
         })
       end)
       if not arranged_ok then
@@ -174,7 +178,7 @@ function M.new(deps)
         return {
           language = request.language,
           parser = request.parser,
-          root = vim.treesitter.get_string_parser(source, request.parser):parse()[1]:root(),
+          root = parse(source, request.parser),
           source = source,
           values = values,
           uses = language.uses,
