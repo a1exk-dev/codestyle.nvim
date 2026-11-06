@@ -11,7 +11,7 @@
 ---@field namespace? string what a rule's `namespace` regex matches
 ---@field children codestyle.ArrangementEntry[] in text order, arranged among themselves inside the entry
 --- Keep-Together kind → the entries that follow this one, in order. With the
---- order `keep` or `by_name` they are the members of its group (getters with
+--- order `keep` or `by_name` they are the entries of its linked set (getters with
 --- their setters, the methods of one parent); with `depth_first` or
 --- `breadth_first` they are the entries it calls, which the Core walks.
 ---@field links table<string, codestyle.ArrangementEntry[]>

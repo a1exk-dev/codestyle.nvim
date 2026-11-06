@@ -96,7 +96,7 @@
 ---@field module string the module path of the `codestyle.ArrangementModule`, required on first use
 ---@field types string[] the entry type tokens, such as `field` and `method`
 ---@field modifiers? string[] the modifier tokens, such as `static`
----@field keep_together? table<string, string[]> each Keep-Together kind → its orders, the first one the default; `depth_first` and `breadth_first` walk the links, others group one level
+---@field keep_together? table<string, string[]> each Keep-Together kind → its orders, the first one the default; `depth_first` and `breadth_first` walk the links, others keep one level of links together
 ---@field name? boolean rules may have a `name` regex
 ---@field namespace? boolean rules may have a `namespace` regex
 ---@field default codestyle.Arrangement used when none is stored, or the stored one is invalid
