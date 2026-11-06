@@ -26,6 +26,7 @@ local text = require('codestyle.text')
 ---@field root? string the folder that Do not format matches `path` from: the repo root or the working directory
 ---@field arrangement? codestyle.ArrangementMode default `auto`
 ---@field buf? integer the buffer whose LSP clients Arrangement may ask; nil for the Preview
+---@field timings? boolean measure each step, for the bench script (ADR-0016)
 
 --- A notice for the caller to report through Notices.
 ---@class codestyle.Notice
@@ -40,6 +41,12 @@ local text = require('codestyle.text')
 ---@field notices codestyle.Notice[]
 ---@field fileformat? 'dos' set when mixed line endings convert to CRLF; `lines` then hold no `\r`
 ---@field matches codestyle.ArrangementMatch[] the Slot and rule of each rearranged Arrangement Entry, at its row in `lines`
+---@field timings? codestyle.StepTiming[] with `request.timings`: the time of each step that ran, in order
+
+--- The time that one step of a format run took.
+---@class codestyle.StepTiming
+---@field step string such as `arrangement`, `before 1`, `engine`, `format`, `after 1`
+---@field ms number
 
 --- A run that the Language Plugin's code ended with an error. The run
 --- changes nothing; each caller decides what the user sees.
@@ -51,6 +58,13 @@ local text = require('codestyle.text')
 ---@field run fun(request: codestyle.FormatRequest): codestyle.FormatResult?, codestyle.FormatFailure?
 
 local M = {}
+
+--- The values and their count, as Lua 5.2's `table.pack`, which LuaJIT lacks.
+---@param ... any
+---@return table
+local function pack(...)
+  return { n = select('#', ...), ... }
+end
 
 --- The notice of a run that Do not format skips, or nil when no glob matches.
 ---@param request codestyle.FormatRequest with a `path`
@@ -75,6 +89,21 @@ function M.new(deps)
   ---@type codestyle.FormatRun
   return {
     run = function(request)
+      local timings = request.timings and {} or nil ---@type codestyle.StepTiming[]?
+      --- Runs one step and returns what it returns; measures it when the request asks.
+      ---@param step string
+      ---@param fn fun(): ...
+      ---@return ...
+      local function timed(step, fn)
+        if not timings then
+          return fn()
+        end
+        local start = vim.uv.hrtime()
+        local results = pack(fn())
+        table.insert(timings, { step = step, ms = (vim.uv.hrtime() - start) / 1e6 })
+        return unpack(results, 1, results.n)
+      end
+
       local languages = language_context.new({ registry = deps.registry, code_style = request.code_style })
       -- Getting the language loads its formatter: the first call into the
       -- plugin's code.
@@ -92,7 +121,9 @@ function M.new(deps)
       end
 
       local spec = deps.registry.get(request.language) --[[@as codestyle.Spec]]
-      local converted, fileformat = line_endings.convert(request.lines)
+      local converted, fileformat = timed('line endings', function()
+        return line_endings.convert(request.lines)
+      end)
       local lines = converted
       local range = request.range
 
@@ -106,23 +137,36 @@ function M.new(deps)
 
       -- Arrangement ignores markers (ADR-0018), and moves entries in the range
       -- among themselves. It calls the plugins' `entries` and `build`.
-      local arranged_ok, arranged = pcall(arrangement_step.run, {
-        registry = deps.registry,
-        languages = languages,
-        code_style = request.code_style,
-        lines = lines,
-        language = request.language,
-        parser = request.parser,
-        range = range,
-        mode = request.arrangement or 'auto',
-        buf = request.buf,
-        notices = notices,
-      })
+      local arranged_ok, arranged = timed('arrangement', function()
+        return pcall(arrangement_step.run, {
+          registry = deps.registry,
+          languages = languages,
+          code_style = request.code_style,
+          lines = lines,
+          language = request.language,
+          parser = request.parser,
+          range = range,
+          mode = request.arrangement or 'auto',
+          buf = request.buf,
+          notices = notices,
+        })
+      end)
       if not arranged_ok then
         return nil, { language = request.language, message = tostring(arranged) }
       end
       lines, range = arranged.lines, arranged.range
       local matches = arranged.matches
+      if request.arrangement == 'only' then
+        -- Rearrange Code: nothing else changes the text.
+        return {
+          lines = lines,
+          edits = text.diff(request.lines, lines),
+          notices = notices,
+          fileformat = fileformat,
+          matches = matches,
+          timings = timings,
+        }
+      end
 
       ---@return codestyle.FormatContext
       local function context()
@@ -183,18 +227,26 @@ function M.new(deps)
       -- calls `build`, the rules and the formatters of Embedded Languages.
       local formatter = language.formatter
       local ok, err = pcall(function()
-        for _, step in ipairs(formatter.before or {}) do
-          apply(step(context()))
+        for index, step in ipairs(formatter.before or {}) do
+          timed('before ' .. index, function()
+            apply(step(context()))
+          end)
         end
         if formatter.format then
-          apply(formatter.format(context()))
+          timed('format', function()
+            apply(formatter.format(context()))
+          end)
         else
-          local edits, engine_notices = engine.layout(context(), languages)
-          vim.list_extend(notices, engine_notices)
-          apply(edits)
+          timed('engine', function()
+            local edits, engine_notices = engine.layout(context(), languages)
+            vim.list_extend(notices, engine_notices)
+            apply(edits)
+          end)
         end
-        for _, step in ipairs(formatter.after or {}) do
-          apply(step(context()))
+        for index, step in ipairs(formatter.after or {}) do
+          timed('after ' .. index, function()
+            apply(step(context()))
+          end)
         end
       end)
       if not ok then
@@ -203,7 +255,9 @@ function M.new(deps)
 
       local keep_key = spec.keep_indents_on_empty_lines
       local keep = keep_key ~= nil and vim.tbl_get(values, unpack(vim.split(keep_key, '.', { plain = true }))) == true
-      lines = text.trim_changed(converted, lines, keep)
+      lines = timed('trailing spaces', function()
+        return text.trim_changed(converted, lines, keep)
+      end)
 
       return {
         lines = lines,
@@ -211,6 +265,7 @@ function M.new(deps)
         notices = notices,
         fileformat = fileformat,
         matches = matches,
+        timings = timings,
       }
     end,
   }

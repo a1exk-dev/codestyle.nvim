@@ -1,0 +1,86 @@
+{
+ "key": "ij_lua_space_around_assignment",
+ "language": "lua",
+ "ui_tab": "Fixture",
+ "ui_group": null,
+ "ui_label": "ij_lua_space_around_assignment",
+ "scheme_xml_location": [
+  "common",
+  "SPACE_AROUND_ASSIGNMENT_OPERATORS"
+ ],
+ "status": "verified-effect",
+ "inputs": {
+  "assign.lua": "x=1\nlocal y=2\n",
+  "body.lua": "if x then\ny=1\nend\n",
+  "module.lua": "local M = {}\nfunction M.b() end\nM.a=1\nreturn M\n"
+ },
+ "base_outputs": {
+  "Default": {
+   "assign.lua": "x=1\nlocal y=2\n",
+   "body.lua": "if x then\n    y=1\nend\n",
+   "module.lua": "local M={}\nfunction M.b() end\nM.a=1\nreturn M\n"
+  },
+  "indent_size = 2": {
+   "assign.lua": "x=1\nlocal y=2\n",
+   "body.lua": "if x then\n  y=1\nend\n",
+   "module.lua": "local M={}\nfunction M.b() end\nM.a=1\nreturn M\n"
+  }
+ },
+ "results": [
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "true",
+   "ui": "true",
+   "internal": "true",
+   "is_default": false,
+   "changed_files": {
+    "assign.lua": {
+     "output": "x = 1\nlocal y = 2\n",
+     "diff": ""
+    },
+    "body.lua": {
+     "output": "if x then\n    y = 1\nend\n",
+     "diff": ""
+    },
+    "module.lua": {
+     "output": "local M = {}\nfunction M.b() end\nM.a = 1\nreturn M\n",
+     "diff": ""
+    }
+   }
+  },
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "false",
+   "ui": "false",
+   "internal": "false",
+   "is_default": false,
+   "changed_files": {}
+  },
+  {
+   "base": "indent_size = 2",
+   "base_settings": {
+    "common:INDENT.INDENT_SIZE": "2"
+   },
+   "value": "true",
+   "ui": "true",
+   "internal": "true",
+   "is_default": false,
+   "changed_files": {
+    "assign.lua": {
+     "output": "x = 1\nlocal y = 2\n",
+     "diff": ""
+    },
+    "body.lua": {
+     "output": "if x then\n  y = 1\nend\n",
+     "diff": ""
+    },
+    "module.lua": {
+     "output": "local M = {}\nfunction M.b() end\nM.a = 1\nreturn M\n",
+     "diff": ""
+    }
+   }
+  }
+ ]
+}
