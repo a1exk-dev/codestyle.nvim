@@ -104,8 +104,9 @@ function M.new(deps)
         )
       end
 
-      -- Arrangement ignores markers (ADR-0018), and moves entries in the range among themselves.
-      local arranged = arrangement_step.run({
+      -- Arrangement ignores markers (ADR-0018), and moves entries in the range
+      -- among themselves. It calls the plugins' `entries` and `build`.
+      local arranged_ok, arranged = pcall(arrangement_step.run, {
         registry = deps.registry,
         languages = languages,
         code_style = request.code_style,
@@ -117,6 +118,9 @@ function M.new(deps)
         buf = request.buf,
         notices = notices,
       })
+      if not arranged_ok then
+        return nil, { language = request.language, message = tostring(arranged) }
+      end
       lines, range = arranged.lines, arranged.range
       local matches = arranged.matches
 
