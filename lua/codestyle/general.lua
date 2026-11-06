@@ -8,6 +8,10 @@
 ---@field options codestyle.OptionSpec[]
 ---@field tabs codestyle.Tab[] PhpStorm's two Tabs of the General page (ADR-0018)
 
+--- The marker Options are dimmed while markers are off (ADR-0018).
+---@type codestyle.Requirement
+local MARKERS_ON = { key = 'markers.enabled', is = true }
+
 ---@type codestyle.GeneralSpec
 return {
   id = 'general',
@@ -21,13 +25,20 @@ return {
       default = true,
       label = 'Turn formatter on/off with markers in code comments',
     },
-    { key = 'markers.off', type = 'string', default = '@formatter:off', label = 'Formatter off' },
-    { key = 'markers.on', type = 'string', default = '@formatter:on', label = 'Formatter on' },
+    {
+      key = 'markers.off',
+      type = 'string',
+      default = '@formatter:off',
+      label = 'Formatter off',
+      requires = MARKERS_ON,
+    },
+    { key = 'markers.on', type = 'string', default = '@formatter:on', label = 'Formatter on', requires = MARKERS_ON },
     {
       key = 'markers.regex',
       type = 'boolean',
       default = false,
       label = 'Enable regular expressions in formatter markers',
+      requires = MARKERS_ON,
     },
   },
   tabs = {

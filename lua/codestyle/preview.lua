@@ -24,6 +24,25 @@
 
 local M = {}
 
+local ns = vim.api.nvim_create_namespace('codestyle.preview')
+
+--- The 0-based rows of `new` that differ from `old`.
+---@param old string[]
+---@param new string[]
+---@return integer[]
+local function changed_rows(old, new)
+  local diff = vim.text and vim.text.diff or vim.diff ---@diagnostic disable-line: deprecated
+  local hunks = diff(table.concat(old, '\n') .. '\n', table.concat(new, '\n') .. '\n', { result_type = 'indices' })
+  local rows = {} ---@type integer[]
+  ---@cast hunks integer[][]
+  for _, hunk in ipairs(hunks) do
+    for row = hunk[3], hunk[3] + hunk[4] - 1 do
+      table.insert(rows, row - 1)
+    end
+  end
+  return rows
+end
+
 --- The text of a Tab that has no sample.
 local NO_SAMPLE = { '', '  No Preview for this Tab.' }
 
@@ -48,13 +67,20 @@ function M.new(deps)
       local queued, detached = false, false
       ---@type table<codestyle.Tab, string[]> the last good output of each Tab
       local last_good = {}
+      ---@type table<codestyle.Tab, integer[]> the marked rows of each Tab's output
+      local marked = {}
       local highlighted ---@type string? the language whose highlighting is on
 
       ---@param lines string[]
-      local function set_lines(lines)
+      ---@param rows? integer[] the 0-based rows to mark as changed
+      local function set_lines(lines, rows)
         vim.bo[view.buf].modifiable = true
         vim.api.nvim_buf_set_lines(view.buf, 0, -1, false, lines)
         vim.bo[view.buf].modifiable = false
+        vim.api.nvim_buf_clear_namespace(view.buf, ns, 0, -1)
+        for _, row in ipairs(rows or {}) do
+          vim.api.nvim_buf_set_extmark(view.buf, ns, row, 0, { line_hl_group = 'CodestylePreviewChanged' })
+        end
       end
 
       --- Highlights the sample with Tree-sitter, else with the spec's Vim
@@ -104,11 +130,15 @@ function M.new(deps)
           code_style = draft.code_style(),
         })
         if result then
+          local previous = last_good[tab]
+          if previous and not vim.deep_equal(previous, result.lines) then
+            marked[tab] = changed_rows(previous, result.lines)
+          end
           last_good[tab] = result.lines
-          set_lines(result.lines)
+          set_lines(result.lines, marked[tab])
           view.status(nil)
         else
-          set_lines(last_good[tab] or tab.sample)
+          set_lines(last_good[tab] or tab.sample, marked[tab])
           view.status(('⚠ %s: formatter error'):format(language))
           deps.notices.report(
             vim.log.levels.ERROR,

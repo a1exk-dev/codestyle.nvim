@@ -30,6 +30,8 @@ return {
       type = 'boolean',
       default = false,
       label = 'Use double quotes',
+      -- A Flagged Option (ADR-0013): the Menu marks it.
+      flagged = 'escaped quotes differ from PhpStorm',
     },
     { key = 'indent.keep_on_empty_lines', type = 'boolean', default = false, label = 'Keep indents on empty lines' },
     { key = 'indent.size', type = 'integer', min = 0, max = 32, default = 4, label = 'Indent' },
@@ -86,7 +88,14 @@ return {
       default = 8,
       label = 'Continuation indent',
     },
-    { key = 'align.call_arguments', type = 'boolean', default = false, label = 'Align call arguments when multiline' },
+    {
+      key = 'align.call_arguments',
+      type = 'boolean',
+      default = false,
+      label = 'Align when multiline',
+      -- A dependency: dimmed while the arguments never wrap.
+      requires = { key = 'wrap.call_arguments', is_not = 'off' },
+    },
     { key = 'align.table_fields', type = 'boolean', default = false, label = 'Align table fields in columns' },
   },
   migrations = {
@@ -120,7 +129,11 @@ return {
     {
       name = 'Wrapping',
       rows = {
-        { label = 'Function call arguments', option = 'wrap.call_arguments', rows = { 'wrap.hard_wrap_at' } },
+        {
+          label = 'Function call arguments',
+          option = 'wrap.call_arguments',
+          rows = { 'wrap.hard_wrap_at', 'align.call_arguments' },
+        },
         'wrap.visual_guides',
       },
       sample = { "print('a', 'b')" },

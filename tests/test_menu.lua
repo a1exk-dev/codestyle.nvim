@@ -3,6 +3,7 @@
 -- text, window options, notices and a few reference screenshots.
 
 local H = dofile('tests/helpers.lua')
+local M = dofile('tests/menu_helpers.lua')
 local expect = MiniTest.expect
 
 local child = H.new_child()
@@ -10,25 +11,7 @@ local child = H.new_child()
 local T = MiniTest.new_set({
   hooks = {
     pre_case = function()
-      child:setup({ plugins = { 'codestyle-lua.nvim', 'codestyle-broken.nvim' } })
-      -- A fixed screen for the screenshots: size, colour scheme, status line.
-      -- The backdrop needs 'termguicolors'. HOME is the case's folder, so the
-      -- Global file shows as `~/xdg/config/nvim/codestyle.json`.
-      child.lua(
-        [[
-          local home = ...
-          vim.env.HOME = home
-          vim.o.lines, vim.o.columns = 24, 80
-          vim.o.termguicolors = true
-          vim.cmd.colorscheme('habamax')
-          vim.o.statusline = '%<%f %l,%c%V'
-          vim.o.laststatus = 2
-          vim.o.showmode = false
-          vim.o.ruler = false
-          vim.opt.shortmess:append('I')
-        ]],
-        { child.paths.root }
-      )
+      M.setup(child, { 'codestyle-lua.nvim', 'codestyle-broken.nvim' })
     end,
     post_case = function()
       child:teardown()
@@ -36,64 +19,33 @@ local T = MiniTest.new_set({
   },
 })
 
---- Lets the child run its scheduled callbacks, such as a queued Preview run.
 local function settle()
-  child.lua('vim.wait(20)')
+  M.settle(child)
 end
 
 local function open_menu()
-  child.cmd('Codestyle')
-  settle()
+  M.open_menu(child)
 end
 
---- The window of a Menu pane: `languages`, `options` or `preview`.
 ---@param name string
----@return integer? win
 local function pane_win(name)
-  local win = child.lua(
-    [[
-      local name = ...
-      for _, win in ipairs(vim.api.nvim_list_wins()) do
-        if vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win)) == 'codestyle://' .. name then
-          return win
-        end
-      end
-    ]],
-    { name }
-  )
-  return win ~= vim.NIL and win or nil
+  return M.pane_win(child, name)
 end
 
 ---@param name string
----@return string[]
 local function pane_lines(name)
-  return child.api.nvim_buf_get_lines(child.api.nvim_win_get_buf(assert(pane_win(name))), 0, -1, true)
+  return M.pane_lines(child, name)
 end
 
---- The rows of a pane with each run of blanks as one space, so that the
---- column of the values, which follows the pane's width, does not matter.
 ---@param name string
----@return string[]
 local function pane_rows(name)
-  return vim.tbl_map(function(line)
-    return vim.trim(line:gsub('%s+', ' '))
-  end, pane_lines(name))
+  return M.pane_rows(child, name)
 end
 
---- Puts the cursor on the row of a pane that holds the text, and focuses the pane.
 ---@param name string
 ---@param text string
 local function cursor_on(name, text)
-  local win = assert(pane_win(name))
-  child.api.nvim_set_current_win(win)
-  for row, line in ipairs(pane_lines(name)) do
-    if line:find(text, 1, true) then
-      child.api.nvim_win_set_cursor(win, { row, 0 })
-      settle()
-      return
-    end
-  end
-  error(('no row with "%s" in %s'):format(text, name))
+  M.cursor_on(child, name, text)
 end
 
 --- The floating windows, by the filetype of their buffer.
@@ -143,12 +95,9 @@ T['opens three floats over a backdrop with the language list'] = function()
   expect.equality(child:notices(), {})
 end
 
---- The winbar of a pane, with the highlight and click items left out.
 ---@param name string
----@return string
 local function winbar_text(name)
-  local winbar = child.lua_get('vim.wo[...].winbar', { assert(pane_win(name)) })
-  return (winbar:gsub('%%#[^#]*#', ''):gsub('%%%d*@[^@]*@', ''):gsub('%%[X<]', ''))
+  return M.winbar_text(child, name)
 end
 
 T['moving in the language list switches the language and the title shows scope and path'] = function()
@@ -288,11 +237,9 @@ end
 
 T['screenshots'] = MiniTest.new_set()
 
---- Checks the screen against `tests/screenshots/<name>`.
 ---@param name string
 local function screenshot(name)
-  settle()
-  expect.reference_screenshot(child.get_screenshot({ redraw = true }), 'tests/screenshots/' .. name)
+  M.screenshot(child, name)
 end
 
 T['screenshots']['the Menu just opened'] = function()
