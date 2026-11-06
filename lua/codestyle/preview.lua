@@ -2,8 +2,9 @@
 -- the Draft and `parsers.default`, through the same Format Run as real
 -- buffers. Keys never wait for it: a change of the Draft queues at most one
 -- run with `vim.schedule`, so a held key skips values and the Preview always
--- ends on the latest Draft. A run that raises keeps the last good output and
--- sets the failure marker; the next good run clears it.
+-- ends on the latest Draft. A run that fails (the Format Run catches the
+-- plugin's error) keeps the last good output and sets the failure marker; the
+-- next good run clears it.
 
 ---@class codestyle.PreviewView
 ---@field buf integer the scratch buffer that shows the sample; its filetype is never a real one
@@ -96,13 +97,13 @@ function M.new(deps)
           view.status(('⚠ %s: no parser %s'):format(language, table.concat(spec.parsers.default or {}, ', ')))
           return
         end
-        local ok, result = pcall(deps.format_run.run, {
+        local result, failure = deps.format_run.run({
           lines = tab.sample,
           language = language,
           parser = parser,
           code_style = draft.code_style(),
         })
-        if ok then
+        if result then
           last_good[tab] = result.lines
           set_lines(result.lines)
           view.status(nil)
@@ -113,7 +114,7 @@ function M.new(deps)
             vim.log.levels.ERROR,
             'always',
             'preview',
-            ('the Preview of "%s" failed: %s'):format(language, tostring(result))
+            ('the Preview of "%s" failed: %s'):format(language, (assert(failure)).message)
           )
         end
       end

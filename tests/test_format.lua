@@ -9,7 +9,7 @@ local child = H.new_child()
 local T = MiniTest.new_set({
   hooks = {
     pre_case = function()
-      child:setup()
+      child:setup({ plugins = { 'codestyle-lua.nvim', 'codestyle-broken.nvim' } })
     end,
     post_case = function()
       child:teardown()
@@ -66,6 +66,26 @@ T['a buffer whose filetype no plugin claims stays unchanged, with one WARN'] = f
   expect.equality(child:notices(), {
     { level = H.levels.WARN, message = 'codestyle: no Language Plugin claims the filetype "text"' },
   })
+end
+
+T['a Language Plugin that raises leaves the buffer unchanged, with one ERROR'] = function()
+  child:write_global({ version = 1, languages = { broken = { build = { raise = true } } } })
+  local buf = child:open_buffer({ filetype = 'broken', lines = { 'x=1' } })
+
+  child:format({ buf = buf })
+  child.cmd('Codestyle format')
+
+  expect.equality(child:lines(buf), { 'x=1' })
+  local notices = child:notices()
+  expect.equality(#notices, 2)
+  for _, notice in ipairs(notices) do
+    expect.equality(notice.level, H.levels.ERROR)
+    expect.equality(
+      vim.startswith(notice.message, 'codestyle: Language Plugin "broken" failed; the buffer is unchanged: '),
+      true
+    )
+    expect.equality(notice.message:find('the fake broken plugin raises on purpose', 1, true) ~= nil, true)
+  end
 end
 
 T[':Codestyle with an unknown subcommand gives one ERROR'] = function()
