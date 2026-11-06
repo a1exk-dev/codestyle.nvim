@@ -150,7 +150,7 @@ T['queries']['changed counts the values that differ from the default, and kept_l
   child:write_global({
     version = 1,
     languages = {
-      lua = { indent = { size = 99 }, comments = { todo = 'TODO' }, arrangement = { enabled = true } },
+      lua = { indent = { size = 99 }, comments = { todo = 'TODO' }, arrangement = { enabled = false } },
       php = { spaces = { around_assignment = true, before_paren = false }, wrap = 5 },
       css = vim.empty_dict(),
     },
@@ -159,7 +159,8 @@ T['queries']['changed counts the values that differ from the default, and kept_l
   draft('set', 'lua', 'spaces.around_assignment', true)
   draft('set', 'lua', 'wrap.hard_wrap_at', 120)
 
-  -- The invalid indent.size and the default comments.todo do not count; the Arrangement counts as one.
+  -- The invalid indent.size and the default comments.todo do not count; the Arrangement, which
+  -- differs from the default, counts as one.
   expect.equality(draft('changed', 'lua'), { 3 })
   expect.equality(draft('changed', 'general'), { 0 })
   expect.equality(draft('kept_languages'), { { { id = 'css', count = 0 }, { id = 'php', count = 3 } } })

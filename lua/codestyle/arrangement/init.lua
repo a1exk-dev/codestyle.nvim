@@ -41,6 +41,8 @@ local text = require('codestyle.text')
 ---@field language string
 ---@field row integer 0-based
 ---@field col integer
+---@field end_row integer where the entry ends, 0-based
+---@field end_col integer exclusive
 ---@field slot? integer nil when no rule matched it, as a member of another entry's Keep-Together group
 ---@field rule? integer the rule's place in its Slot
 
@@ -628,7 +630,7 @@ function M.arrange(ctx, arrangement, plugin, lines)
     table.insert(out, piece)
     length = length + #piece
   end
-  local found = {} ---@type { offset: integer, rule?: codestyle.CompiledRule }[]
+  local found = {} ---@type { offset: integer, end_offset?: integer, rule?: codestyle.CompiledRule }[]
 
   ---@param entry codestyle.ArrangementEntry
   local function first(entry)
@@ -657,7 +659,8 @@ function M.arrange(ctx, arrangement, plugin, lines)
   ---@param entry codestyle.ArrangementEntry
   ---@param rule? codestyle.CompiledRule
   local function emit_entry(entry, rule)
-    table.insert(found, { offset = length, rule = rule })
+    local match = { offset = length, rule = rule }
+    table.insert(found, match)
     local children = taking_part(entry.children)
     if #children == 0 then
       emit(source:sub(first(entry) + 1, last(entry)))
@@ -666,6 +669,7 @@ function M.arrange(ctx, arrangement, plugin, lines)
       emit_group(children)
       emit(source:sub(last(children[#children]) + 1, last(entry)))
     end
+    match.end_offset = length
   end
   ---@param entries codestyle.ArrangementEntry[]
   emit_group = function(entries)
@@ -706,10 +710,13 @@ function M.arrange(ctx, arrangement, plugin, lines)
   local result = {} ---@type codestyle.ArrangementMatch[]
   for _, entry in ipairs(found) do
     local row, col = position(entry.offset)
+    local end_row, end_col = position(entry.end_offset)
     table.insert(result, {
       language = ctx.language,
       row = row,
       col = col,
+      end_row = end_row,
+      end_col = end_col,
       slot = entry.rule and entry.rule.slot,
       rule = entry.rule and entry.rule.rule,
     })
