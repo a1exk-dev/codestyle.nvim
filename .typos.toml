@@ -1,0 +1,4 @@
+# Reference screenshots of the Menu (tests/screenshots) hold screen text that a
+# narrow window cuts mid-word, so they are not spell-checked.
+[files]
+extend-exclude = ["tests/screenshots/"]

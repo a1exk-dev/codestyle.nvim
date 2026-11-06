@@ -13,6 +13,7 @@ local M = {}
 ---@field health codestyle.Health
 ---@field draft fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? opens a Draft of the scope's saved Code Style
 ---@field presets codestyle.Presets
+---@field menu codestyle.Menu
 
 ---@type codestyle.Instance?
 local instance
@@ -33,12 +34,16 @@ function M.get()
       notices = notices,
     })
     local store = require('codestyle.store').new({ notices = notices, registry = registry })
+    local format_run = require('codestyle.format_run').new({ registry = registry })
     local format_api = require('codestyle.format').new({
       notices = notices,
       selector = selector,
       store = store,
-      format_run = require('codestyle.format_run').new({ registry = registry }),
+      format_run = format_run,
     })
+    local function draft(scope, root)
+      return require('codestyle.draft').new({ store = store, registry = registry, scope = scope, root = root })
+    end
     local keys = require('codestyle.keys').new({ settings = settings.get })
     local conform = require('codestyle.conform').new({ format_api = format_api })
     instance = {
@@ -57,9 +62,19 @@ function M.get()
         settings.set(new)
         keys.apply()
       end,
-      draft = function(scope, root)
-        return require('codestyle.draft').new({ store = store, registry = registry, scope = scope, root = root })
-      end,
+      draft = draft,
+      menu = require('codestyle.menu').new({
+        registry = registry,
+        store = store,
+        selector = selector,
+        notices = notices,
+        draft = draft,
+        preview = require('codestyle.preview').new({
+          registry = registry,
+          format_run = format_run,
+          notices = notices,
+        }),
+      }),
       presets = require('codestyle.presets').new({ registry = registry, settings = settings.get, notices = notices }),
     }
   end

@@ -1,4 +1,5 @@
--- The `:Codestyle` command (ADR-0014).
+-- The `:Codestyle` command (ADR-0014). With no argument it opens the Menu
+-- (#50 New decisions).
 
 local M = {}
 
@@ -11,6 +12,10 @@ local subcommands = {
 
 ---@param opts vim.api.keyset.create_user_command.command_args
 function M.run(opts)
+  if not opts.fargs[1] then
+    require('codestyle.instance').get().menu.open()
+    return
+  end
   local subcommand = subcommands[opts.fargs[1]]
   if not subcommand then
     vim.notify(('codestyle: unknown subcommand "%s"'):format(opts.fargs[1]), vim.log.levels.ERROR)

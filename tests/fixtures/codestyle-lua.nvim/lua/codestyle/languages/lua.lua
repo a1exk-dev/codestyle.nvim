@@ -114,5 +114,31 @@ return {
       },
     },
   },
+  -- The Menu's Tabs, each with its Preview sample (ADR-0007).
+  tabs = {
+    { name = 'Spaces', rows = { 'spaces.around_assignment' }, sample = { 'x=1', "name='codestyle'" } },
+    {
+      name = 'Wrapping',
+      rows = {
+        { label = 'Function call arguments', option = 'wrap.call_arguments', rows = { 'wrap.hard_wrap_at' } },
+        'wrap.visual_guides',
+      },
+      sample = { "print('a', 'b')" },
+    },
+    {
+      name = 'Other',
+      rows = {
+        'indent.size',
+        'indent.keep_on_empty_lines',
+        'conversion.semicolons',
+        'conversion.double_quotes',
+        'comments.todo',
+        'names.globals',
+        'members.order',
+      },
+      sample = { "x = 'a';" },
+    },
+  },
+  syntax = 'lua',
   formatter = 'codestyle.languages.lua.formatter',
 }

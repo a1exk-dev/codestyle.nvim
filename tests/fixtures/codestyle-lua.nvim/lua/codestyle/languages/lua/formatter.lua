@@ -5,7 +5,8 @@
 -- quotes into double quotes. The steps ignore `ctx.range` on purpose, so the
 -- Core's dropping of edits outside it shows. Other fixtures reuse this
 -- formatter with fewer Options, so it reads every value with a default.
--- `build` keeps a copy of `ctx.values` in `_G.codestyle_test_values` for tests.
+-- `build` keeps a copy of `ctx.values` in `_G.codestyle_test_values` and counts
+-- its calls in `_G.codestyle_test_builds`, for tests.
 
 local alignment = require('codestyle.alignment')
 local block = require('codestyle.block')
@@ -147,6 +148,7 @@ return {
   build = function(ctx)
     -- Lets a test read the values that the Core passes to a plugin.
     _G.codestyle_test_values = vim.deepcopy(ctx.values)
+    _G.codestyle_test_builds = (_G.codestyle_test_builds or 0) + 1
     return build_node(ctx.root, ctx.values)
   end,
   indent_options = function(values)
