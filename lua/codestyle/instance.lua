@@ -10,7 +10,7 @@ local M = {}
 --- seams; the Menu and `codestyle.testing` use them from here.
 ---@class codestyle.Services
 ---@field notices codestyle.Notices
----@field settings codestyle.SettingsStore
+---@field setup codestyle.SetupStore the user's choices from `setup{}`
 ---@field registry codestyle.Registry
 ---@field selector codestyle.Selector
 ---@field store codestyle.Store
@@ -27,11 +27,11 @@ local M = {}
 ---@return codestyle.Services
 function M.new(opts)
   local notices = require('codestyle.notices').new({ notify = opts.notify })
-  local settings = require('codestyle.settings').new()
+  local setup = require('codestyle.setup').new()
   local registry = require('codestyle.registry').new({ notices = notices, api = require('codestyle').api })
   local selector = require('codestyle.selector').new({
     registry = registry,
-    settings = settings.get,
+    setup = setup.get,
     notices = notices,
   })
   local store = require('codestyle.store').new({ notices = notices, registry = registry })
@@ -40,7 +40,7 @@ function M.new(opts)
   ---@type codestyle.Services
   return {
     notices = notices,
-    settings = settings,
+    setup = setup,
     registry = registry,
     selector = selector,
     store = store,
@@ -54,7 +54,7 @@ function M.new(opts)
     draft = function(scope, root)
       return require('codestyle.draft').new({ store = store, registry = registry, scope = scope, root = root })
     end,
-    presets = require('codestyle.presets').new({ registry = registry, settings = settings.get, notices = notices }),
+    presets = require('codestyle.presets').new({ registry = registry, setup = setup.get, notices = notices }),
     importer = importer,
     scheme_xml = require('codestyle.scheme_xml').new({ importer = importer, notices = notices }),
   }
@@ -64,7 +64,7 @@ end
 ---@class codestyle.Instance
 ---@field format fun(opts?: codestyle.FormatOpts)
 ---@field format_selection fun()
----@field setup fun(settings?: codestyle.Settings) keeps the settings and applies the keys
+---@field setup fun(choices?: codestyle.Setup) keeps the user's choices and applies the keys
 ---@field keys codestyle.Keys
 ---@field formatexpr codestyle.Formatexpr
 ---@field conform codestyle.ConformAdapter
@@ -82,7 +82,7 @@ function M.get()
         vim.notify(message, level)
       end,
     })
-    local keys = require('codestyle.keys').new({ settings = core.settings.get })
+    local keys = require('codestyle.keys').new({ setup = core.setup.get })
     local conform = require('codestyle.conform').new({ format_api = core.format_api })
     instance = {
       format = core.format_api.format,
@@ -97,7 +97,7 @@ function M.get()
       }),
       formatexpr = require('codestyle.formatexpr').new({ format_api = core.format_api }),
       setup = function(new)
-        core.settings.set(new)
+        core.setup.set(new)
         keys.apply()
       end,
       menu = require('codestyle.menu').new({

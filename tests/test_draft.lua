@@ -442,8 +442,8 @@ end
 
 T['Presets']['user Presets from setup come after the plugin ones, marked (user), and a repeated name hides neither'] = function()
   child:services()
-  -- The settings that `require('codestyle').setup{}` keeps.
-  child.lua([[_G.core.settings.set({
+  -- The choices that `require('codestyle').setup{}` keeps.
+  child.lua([[_G.core.setup.set({
     presets = {
       { name = 'Roomy', language = 'lua', values = { lua = { indent = { size = 3 } } } },
       { name = 'Tight', language = 'alt', values = { alt = { spaces = { around_assignment = false } } } },

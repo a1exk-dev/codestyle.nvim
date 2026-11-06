@@ -26,7 +26,7 @@ local tree = require('codestyle.tree')
 
 local M = {}
 
----@param deps { registry: codestyle.Registry, settings: (fun(): codestyle.Settings), notices: codestyle.Notices }
+---@param deps { registry: codestyle.Registry, setup: (fun(): codestyle.Setup), notices: codestyle.Notices }
 ---@return codestyle.Presets
 function M.new(deps)
   local registry = deps.registry
@@ -115,7 +115,7 @@ function M.new(deps)
           { name = preset.name, label = preset.name, language = id, values = preset.values, user = false }
         )
       end
-      for _, preset in ipairs(deps.settings().presets or {}) do
+      for _, preset in ipairs(deps.setup().presets or {}) do
         if preset.language == id then
           table.insert(items, {
             name = preset.name,

@@ -7,9 +7,9 @@ local M = {}
 M.api = 1
 
 --- Keeps the user's choices. It has no other side effects.
----@param settings? codestyle.Settings
-function M.setup(settings)
-  require('codestyle.instance').get().setup(settings)
+---@param choices? codestyle.Setup
+function M.setup(choices)
+  require('codestyle.instance').get().setup(choices)
 end
 
 --- A `match(buf)` for a spec: true when the buffer's file name matches one of

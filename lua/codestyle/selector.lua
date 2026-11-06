@@ -55,7 +55,7 @@ function M.match_globs(globs)
   end
 end
 
----@param deps { registry: codestyle.Registry, settings: (fun(): codestyle.Settings), notices: codestyle.Notices }
+---@param deps { registry: codestyle.Registry, setup: (fun(): codestyle.Setup), notices: codestyle.Notices }
 ---@return codestyle.Selector
 function M.new(deps)
   local registry = deps.registry
@@ -138,7 +138,7 @@ function M.new(deps)
     if id ~= nil then
       return id
     end
-    local filetypes = deps.settings().filetypes or {}
+    local filetypes = deps.setup().filetypes or {}
     for _, key in ipairs(filetype_keys(filetype)) do
       if filetypes[key] ~= nil then
         return filetypes[key]

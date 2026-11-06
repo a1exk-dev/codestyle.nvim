@@ -88,7 +88,7 @@ end
 ---@return codestyle.testing.Report
 function M.run(opts)
   local messages = {} ---@type string[]
-  -- The same wiring as the editor's, with no user settings, and the
+  -- The same wiring as the editor's, with no choices of `setup{}`, and the
   -- messages kept for the report.
   local core = require('codestyle.instance').new({
     notify = function(message)
