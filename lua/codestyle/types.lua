@@ -91,6 +91,7 @@
 ---@field fields? string[] field names
 --- The Spacing of the Gap between two adjacent children of `parent`, or nil to
 --- leave the Gap to the next rule. The first rule that gives a Spacing wins.
+--- `require('codestyle.spacing_builder')` writes such rules.
 ---@field spacing? fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block, values: codestyle.Values): codestyle.Spacing?
 
 --- A step that changes text, such as forced braces or letter case. The Core
@@ -107,6 +108,10 @@
 --- Replaces the Core engine for the language: the edits for the whole text, or
 --- for the lines of `ctx.range`. Such a language has no Blocks.
 ---@field format? fun(ctx: codestyle.FormatContext): codestyle.Edit[]
+--- The sizes of the Indent kinds; default 4 and 8.
+---@field indent_options? fun(values: codestyle.Values): codestyle.IndentOptions
+--- The widest a line may be before a Wrap breaks it; default `general.hard_wrap_at`.
+---@field right_margin? fun(values: codestyle.Values): integer
 
 --- One text change: replace the text from the start to the end position
 --- (rows 0-based, byte columns, end exclusive) with `text`.
