@@ -13,6 +13,7 @@ local M = {}
 ---@field health codestyle.Health
 ---@field draft fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? opens a Draft of the scope's saved Code Style
 ---@field presets codestyle.Presets
+---@field scheme_xml codestyle.SchemeXml the Scheme XML import into a Draft (ADR-0010)
 ---@field menu codestyle.Menu
 ---@field format_run codestyle.FormatRun the one run behind every caller; the Preview reads its Arrangement matches
 
@@ -78,6 +79,7 @@ function M.get()
         }),
       }),
       presets = require('codestyle.presets').new({ registry = registry, settings = settings.get, notices = notices }),
+      scheme_xml = require('codestyle.scheme_xml').new({ registry = registry, notices = notices }),
     }
   end
   return instance

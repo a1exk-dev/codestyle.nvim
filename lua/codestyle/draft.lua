@@ -29,6 +29,10 @@ local tree = require('codestyle.tree')
 ---@field set_arrangement fun(id: string, value: any) stores the language's Arrangement
 ---@field reset_arrangement fun(id: string) back to the default Arrangement
 ---@field apply fun(patch: codestyle.Patch) merges checked values, such as a Preset's, as one step
+--- Resets `general` and every installed language to their defaults, Arrangement included, and then
+--- sets the checked values of the patch, as one step: a Scheme XML import (ADR-0010). The stored values
+--- of languages with no installed plugin stay.
+---@field replace fun(patch: codestyle.Patch)
 ---@field undo fun(): boolean false when there is nothing to undo
 ---@field redo fun(): boolean false when there is nothing to redo
 ---@field changed fun(id: string): integer the number of the language's values that differ from the default, the Arrangement counting as one
@@ -199,6 +203,20 @@ function M.new(deps)
       step(function(languages)
         for id, values in pairs(patch) do
           for key, value in pairs(values) do
+            tree.set(language(languages, id), tree.path(key), vim.deepcopy(value))
+          end
+        end
+      end)
+    end,
+    replace = function(patch)
+      local ids = vim.list_extend({ general.id }, code_style.used_languages(registry))
+      for id in pairs(patch) do
+        assert(vim.list_contains(ids, id), 'not an installed language: ' .. id)
+      end
+      step(function(languages)
+        for _, id in ipairs(ids) do
+          languages[id] = nil
+          for key, value in pairs(patch[id] or {}) do
             tree.set(language(languages, id), tree.path(key), vim.deepcopy(value))
           end
         end
