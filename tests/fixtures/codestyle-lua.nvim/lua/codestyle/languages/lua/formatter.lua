@@ -1,4 +1,5 @@
 -- The fake `lua` formatter: one Block per parser node, and one spacing rule.
+-- `build` keeps a copy of `ctx.values` in `_G.codestyle_test_values` for tests.
 
 local block = require('codestyle.block')
 local spacing = require('codestyle.spacing')
@@ -16,6 +17,8 @@ end
 ---@type codestyle.Formatter
 return {
   build = function(ctx)
+    -- Lets a test read the values that the Core passes to a plugin.
+    _G.codestyle_test_values = vim.deepcopy(ctx.values)
     return build_node(ctx.root)
   end,
   rules = {

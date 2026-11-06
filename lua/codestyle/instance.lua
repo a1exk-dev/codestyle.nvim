@@ -27,7 +27,7 @@ function M.get()
         settings = settings.get,
         notices = notices,
       }),
-      store = require('codestyle.store').new({ registry = registry }),
+      store = require('codestyle.store').new({ notices = notices, registry = registry }),
       format_run = require('codestyle.format_run').new({ registry = registry }),
     })
     instance = { format = format_api.format, setup = settings.set }

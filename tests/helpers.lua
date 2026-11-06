@@ -82,7 +82,7 @@ end
 
 --- Opens a new buffer with these lines and this filetype and makes it current.
 --- Setting the lines is not an undo step, so one `u` after a format restores them.
----@param opts { lines: string[], filetype?: string, name?: string } `name` is the buffer's file name
+---@param opts { lines: string[], filetype?: string, name?: string } `name` is the buffer's file name (the file itself is not written)
 ---@return integer buf
 function Child:open_buffer(opts)
   return self.lua(
@@ -114,6 +114,12 @@ end
 ---@return string[]
 function Child:lines(buf)
   return self.api.nvim_buf_get_lines(buf, 0, -1, true)
+end
+
+--- The `ctx.values` that the fake `lua` formatter got in the last format run.
+---@return table
+function Child:plugin_values()
+  return self.lua_get('_G.codestyle_test_values')
 end
 
 --- Every `vim.notify` call of the child since `setup()`.
