@@ -5,6 +5,11 @@
 ---@class codestyle.Settings
 --- Filetype → language id, or `false` to turn codestyle off for the filetype (ADR-0015).
 ---@field filetypes? table<string, string|false>
+--- The user's own Presets, shown after the plugin's in the "Set from…" list of `language` (ADR-0006).
+---@field presets? codestyle.UserPreset[]
+
+---@class codestyle.UserPreset: codestyle.Preset
+---@field language string the language id whose "Set from…" list shows the Preset, `general` included
 
 ---@class codestyle.SettingsStore
 ---@field get fun(): codestyle.Settings

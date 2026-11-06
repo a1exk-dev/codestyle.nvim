@@ -41,7 +41,17 @@
 ---@field exports? codestyle.Exports what this plugin offers to plugins that use it (ADR-0007)
 ---@field options codestyle.OptionSpec[]
 ---@field migrations? codestyle.Migration[] renames of keys and choice ids, in the order they were made
+---@field presets? codestyle.Preset[] the "Set from…" list of the language (ADR-0006)
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
+
+--- A named set of Option values (ADR-0006). `values` is keyed by language id,
+--- its own, `general` or another language's, and nested like a Code Style
+--- file (`{ spaces = { around_assignment = true } }`); a dotted key
+--- (`['spaces.around_assignment'] = true`) works too. A Preset never sets
+--- Arrangement.
+---@class codestyle.Preset
+---@field name string
+---@field values table<string, table>
 
 --- What a Language Plugin offers to the plugins that `uses` it (ADR-0007).
 --- Within one version, only optional fields are added.

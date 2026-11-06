@@ -61,5 +61,25 @@ return {
     { key = 'spaces.assign', to = 'spaces.around_assignment' },
     { key = 'wrap.call_arguments', choice = 'chop', to = 'chop_down' },
   },
+  presets = {
+    -- Sets its own language, `general` and the fake `alt` language (ADR-0006).
+    {
+      name = 'Roomy',
+      values = {
+        lua = { spaces = { around_assignment = true }, indent = { size = 2 } },
+        general = { hard_wrap_at = 100 },
+        alt = { spaces = { around_assignment = true } },
+      },
+    },
+    -- One value that applies, and one of each kind that is skipped.
+    {
+      name = 'Mixed',
+      values = {
+        lua = { comments = { todo = 'XXX' }, ['spaces.before_paren'] = true, arrangement = { enabled = false } },
+        alt = { spaces = { around_assignment = 'yes' } },
+        c = { indent = { size = 2 } },
+      },
+    },
+  },
   formatter = 'codestyle.languages.lua.formatter',
 }
