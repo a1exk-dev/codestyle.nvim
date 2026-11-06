@@ -7,6 +7,7 @@
 ---| 'formatter' the module that `spec.formatter` names
 ---| 'exports' the module that `spec.exports.module` names, or `{}` when it names none
 ---| 'arrangement' the module that `spec.arrangement.module` names
+---| 'scheme' the module that `spec.scheme` names
 
 ---@alias codestyle.StatusKind
 ---| 'ok'
