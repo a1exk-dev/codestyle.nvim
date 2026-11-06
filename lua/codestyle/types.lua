@@ -44,6 +44,9 @@
 --- The key of the boolean Option that is PhpStorm's "Keep indents on empty lines", if the
 --- language has one. `:checkhealth codestyle` warns when editorconfig's trim would strip those indents.
 ---@field keep_indents_on_empty_lines? string
+--- True when the line of a formatter on-marker belongs to the marker region, so it keeps its
+--- column, as in HTML, XML and JSON (ADR-0018). By default that line is formatted.
+---@field on_marker_in_region? boolean
 ---@field presets? codestyle.Preset[] the "Set from…" list of the language (ADR-0006)
 ---@field tabs? codestyle.Tab[] the Menu's Tabs of the language, in order; without them the Menu shows one Tab with every Option
 ---@field syntax? string the Vim `syntax` that highlights the Preview when no parser of `parsers.default` is installed
@@ -107,6 +110,7 @@
 ---@field fields? string[] field names
 --- The Spacing of the Gap between two adjacent children of `parent`, or nil to
 --- leave the Gap to the next rule. The first rule that gives a Spacing wins.
+--- `require('codestyle.spacing_builder')` writes such rules.
 ---@field spacing? fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block, values: codestyle.Values): codestyle.Spacing?
 
 --- A step that changes text, such as forced braces or letter case. The Core
@@ -123,6 +127,10 @@
 --- Replaces the Core engine for the language: the edits for the whole text, or
 --- for the lines of `ctx.range`. Such a language has no Blocks.
 ---@field format? fun(ctx: codestyle.FormatContext): codestyle.Edit[]
+--- The sizes of the Indent kinds; default 4 and 8.
+---@field indent_options? fun(values: codestyle.Values): codestyle.IndentOptions
+--- The widest a line may be before a Wrap breaks it; default `general.hard_wrap_at`.
+---@field right_margin? fun(values: codestyle.Values): integer
 
 --- One text change: replace the text from the start to the end position
 --- (rows 0-based, byte columns, end exclusive) with `text`.

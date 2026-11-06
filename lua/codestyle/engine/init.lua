@@ -2,9 +2,29 @@
 -- between Blocks. Its interface to the rest of the Core is `layout`.
 
 local read_only = require('codestyle.read_only')
-local spacing = require('codestyle.engine.spacing')
+local layout = require('codestyle.engine.layout')
 
 local M = {}
+
+--- The sizes of the Indent kinds when the formatter does not give them, as
+--- IntelliJ's defaults.
+---@type codestyle.IndentOptions
+local default_indent = { size = 4, continuation = 8 }
+
+--- The Spacing of the first rule that gives one, or nil to keep the Gap.
+---@param rules codestyle.Rule[]
+---@param values codestyle.Values
+---@return fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block): codestyle.Spacing?
+local function first_spacing(rules, values)
+  return function(parent, left, right)
+    for _, rule in ipairs(rules) do
+      local spacing = rule.spacing and rule.spacing(parent, left, right, values)
+      if spacing then
+        return spacing
+      end
+    end
+  end
+end
 
 --- The read-only parts of broken code: the lines of each `ERROR` node, and the
 --- lines of the node that a `MISSING` node leaves open (ADR-0002).
@@ -84,8 +104,15 @@ function M.layout(ctx, formatter)
     vim.list_extend(parts, read_only.outside(ctx.range))
   end
   local root = formatter.build(ctx)
+  local values = ctx.values
   local lines = vim.split(ctx.source, '\n', { plain = true })
-  return spacing.edits(root, lines, rules, ctx.values, read_only.new(parts)), notices
+  return layout.edits(root, lines, {
+    spacing = first_spacing(rules, values),
+    indent = formatter.indent_options and formatter.indent_options(values) or default_indent,
+    right_margin = formatter.right_margin and formatter.right_margin(values) or values.general.hard_wrap_at,
+    read_only = read_only.new(parts),
+  }),
+    notices
 end
 
 return M
