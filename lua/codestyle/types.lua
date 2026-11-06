@@ -56,19 +56,41 @@
 --- `ctx` and their arguments (ADR-0016).
 ---@class codestyle.FormatContext
 ---@field language string the language id
+---@field parser string the name of the parser of `root`
 ---@field root TSNode the root of the parse tree of `source`
 ---@field source string the text being formatted, lines joined by `\n`
 ---@field values codestyle.Values
+---@field range? codestyle.Range the lines to format, nil for the whole text; the Core drops a step's edit outside it
 
---- The rules that the engine calls on a parent Block (ADR-0007).
----@class codestyle.Rules
---- The Spacing of the Gap between two adjacent children of `parent`, or nil to keep the Gap.
+--- Whole lines of the text: rows 0-based, both ends included.
+---@class codestyle.Range
+---@field start_row integer
+---@field end_row integer
+
+--- One rule that the engine calls on a parent Block (ADR-0007). A rule names
+--- the parser nodes and fields it needs; when the grammar lacks one, the Core
+--- skips the rule with a warning (ADR-0002).
+---@class codestyle.Rule
+---@field nodes? string[] node types, named (`assignment_statement`) or anonymous (`=`)
+---@field fields? string[] field names
+--- The Spacing of the Gap between two adjacent children of `parent`, or nil to
+--- leave the Gap to the next rule. The first rule that gives a Spacing wins.
 ---@field spacing? fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block, values: codestyle.Values): codestyle.Spacing?
 
---- The `formatter` module of a Language Plugin (ADR-0007).
+--- A step that changes text, such as forced braces or letter case. The Core
+--- parses the text again after each step.
+---@alias codestyle.Step fun(ctx: codestyle.FormatContext): codestyle.Edit[]
+
+--- The `formatter` module of a Language Plugin (ADR-0007). It gives `build`
+--- and `rules` for the Core engine, or `format` to replace the engine.
 ---@class codestyle.Formatter
----@field build fun(ctx: codestyle.FormatContext): codestyle.Block
----@field rules codestyle.Rules
+---@field build? fun(ctx: codestyle.FormatContext): codestyle.Block
+---@field rules? codestyle.Rule[] in order of priority
+---@field before? codestyle.Step[] run in order before the engine
+---@field after? codestyle.Step[] run in order after the engine
+--- Replaces the Core engine for the language: the edits for the whole text, or
+--- for the lines of `ctx.range`. Such a language has no Blocks.
+---@field format? fun(ctx: codestyle.FormatContext): codestyle.Edit[]
 
 --- One text change: replace the text from the start to the end position
 --- (rows 0-based, byte columns, end exclusive) with `text`.

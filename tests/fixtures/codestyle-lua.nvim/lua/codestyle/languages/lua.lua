@@ -19,6 +19,18 @@ return {
       default = false,
       label = 'Assignment operators (=)',
     },
+    {
+      key = 'conversion.semicolons',
+      type = 'boolean',
+      default = false,
+      label = 'Remove semicolons',
+    },
+    {
+      key = 'conversion.double_quotes',
+      type = 'boolean',
+      default = false,
+      label = 'Use double quotes',
+    },
     { key = 'indent.size', type = 'integer', min = 0, max = 32, default = 4, label = 'Indent' },
     {
       key = 'wrap.call_arguments',
