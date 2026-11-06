@@ -47,11 +47,16 @@ function M.new(deps)
         return
       end
 
+      local code_style = deps.store.for_buffer(buf)
+      if not code_style then
+        return
+      end
+
       local result = deps.format_run.run({
         lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true),
         language = choice.language,
         parser = choice.parser,
-        code_style = (deps.store.for_buffer(buf)),
+        code_style = code_style,
       })
       apply(buf, result.edits)
     end,

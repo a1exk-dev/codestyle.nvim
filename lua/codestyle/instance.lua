@@ -20,7 +20,7 @@ function M.get()
     local format_api = require('codestyle.format').new({
       notices = notices,
       selector = require('codestyle.selector').new({ registry = registry }),
-      store = require('codestyle.store').new({ registry = registry }),
+      store = require('codestyle.store').new({ notices = notices, registry = registry }),
       format_run = require('codestyle.format_run').new({ registry = registry }),
     })
     instance = { format = format_api.format }
