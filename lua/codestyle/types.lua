@@ -62,13 +62,18 @@
 
 --- The rules that the engine calls on a parent Block (ADR-0007).
 ---@class codestyle.Rules
---- The Spacing of the Gap between two adjacent children of `parent`, or nil to keep the Gap.
+--- The Spacing of the Gap between two adjacent children of `parent`, or nil
+--- to keep the Gap. `require('codestyle.spacing_builder')` builds one.
 ---@field spacing? fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block, values: codestyle.Values): codestyle.Spacing?
 
 --- The `formatter` module of a Language Plugin (ADR-0007).
 ---@class codestyle.Formatter
 ---@field build fun(ctx: codestyle.FormatContext): codestyle.Block
 ---@field rules codestyle.Rules
+--- The sizes of the Indent kinds; default 4 and 8.
+---@field indent_options? fun(values: codestyle.Values): codestyle.IndentOptions
+--- The widest a line may be before a Wrap breaks it; default `general.hard_wrap_at`.
+---@field right_margin? fun(values: codestyle.Values): integer
 
 --- One text change: replace the text from the start to the end position
 --- (rows 0-based, byte columns, end exclusive) with `text`.
