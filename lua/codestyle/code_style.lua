@@ -1,6 +1,7 @@
 -- A Code Style value: the stored file content and the resolved values of
 -- `general` and of each installed language.
 
+local arrangement = require('codestyle.arrangement')
 local general = require('codestyle.general')
 local schema = require('codestyle.schema')
 
@@ -15,7 +16,10 @@ local schema = require('codestyle.schema')
 ---@class codestyle.CodeStyle
 ---@field raw fun(): codestyle.StoredFile the file content as stored, after migrations
 ---@field values fun(id: string): codestyle.Values the resolved values of an installed language, with `general` under `general`
----@field problems fun(): codestyle.LanguageProblem[] the invalid stored values of `general` and of every installed language
+---@field problems fun(): codestyle.LanguageProblem[] the invalid stored values of `general` and of every installed language, an invalid Arrangement included
+--- The Arrangement that formats the language: the stored one, or the default when none is stored or it is
+--- invalid (ADR-0011). Nil when the spec has no Arrangement.
+---@field arrangement fun(id: string): codestyle.Arrangement?
 
 local M = {}
 
@@ -34,7 +38,7 @@ end
 ---@return codestyle.CodeStyle
 function M.new(raw, registry)
   local languages = raw.languages or {}
-  ---@type table<string, { values: codestyle.Values, problems: codestyle.Problem[] }>
+  ---@type table<string, { values: codestyle.Values, problems: codestyle.Problem[], arrangement?: codestyle.Arrangement }>
   local resolved = {}
 
   ---@param id string
@@ -46,7 +50,15 @@ function M.new(raw, registry)
       if general_values then
         values.general = general_values
       end
-      resolved[id] = { values = values, problems = problems }
+      local stored_arrangement, arrangement_problem
+      if spec.arrangement then
+        local stored = type(languages[id]) == 'table' and languages[id].arrangement or nil
+        stored_arrangement, arrangement_problem = arrangement.validate(spec.arrangement, stored)
+        if arrangement_problem then
+          table.insert(problems, arrangement_problem)
+        end
+      end
+      resolved[id] = { values = values, problems = problems, arrangement = stored_arrangement }
     end
     return resolved[id]
   end
@@ -58,6 +70,9 @@ function M.new(raw, registry)
     end,
     values = function(id)
       return resolve(id).values
+    end,
+    arrangement = function(id)
+      return resolve(id).arrangement
     end,
     problems = function()
       local problems = {} ---@type codestyle.LanguageProblem[]

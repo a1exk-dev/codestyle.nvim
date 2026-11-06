@@ -14,6 +14,7 @@ local M = {}
 ---@field draft fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile? opens a Draft of the scope's saved Code Style
 ---@field presets codestyle.Presets
 ---@field menu codestyle.Menu
+---@field format_run codestyle.FormatRun the one run behind every caller; the Preview reads its Arrangement matches
 
 ---@type codestyle.Instance?
 local instance
@@ -63,6 +64,7 @@ function M.get()
         keys.apply()
       end,
       draft = draft,
+      format_run = format_run,
       menu = require('codestyle.menu').new({
         registry = registry,
         store = store,

@@ -8,7 +8,7 @@ vim.api.nvim_create_user_command('Codestyle', function(opts)
 end, {
   nargs = '?',
   range = true,
-  desc = 'codestyle.nvim: open the Menu, or format the buffer or the range',
+  desc = 'codestyle.nvim: open the Menu, or format or rearrange the buffer or the range',
   complete = function(arg_lead)
     return require('codestyle.command').complete(arg_lead)
   end,

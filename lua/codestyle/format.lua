@@ -4,6 +4,7 @@
 ---@class codestyle.FormatOpts
 ---@field buf? integer the buffer, 0 or nil for the current one
 ---@field range? integer[] `{ start_line, end_line }`: the whole lines to format, 1-based and inclusive; nil for the whole buffer
+---@field arrangement? codestyle.ArrangementMode `force` rearranges also when the language's Arrangement is off; default `auto`
 
 ---@class codestyle.FormatApi
 ---@field format fun(opts?: codestyle.FormatOpts)
@@ -63,9 +64,10 @@ function M.new(deps)
   ---@param buf integer
   ---@param lines string[]
   ---@param range? integer[]
+  ---@param mode? codestyle.ArrangementMode
   ---@return codestyle.FormatResult?
   ---@return string? message why nothing is formatted
-  local function run(buf, lines, range)
+  local function run(buf, lines, range, mode)
     deps.notices.begin_run()
     local choice, no_choice = deps.selector.choose(buf)
     if not choice then
@@ -86,6 +88,8 @@ function M.new(deps)
       range = range and { start_row = range[1] - 1, end_row = range[2] - 1 },
       path = path ~= '' and path or nil,
       root = repo.root(buf) or vim.fn.getcwd(),
+      arrangement = mode,
+      buf = buf,
     })
     if result.fileformat then
       vim.bo[buf].fileformat = result.fileformat
@@ -124,7 +128,7 @@ function M.new(deps)
     format = function(opts)
       opts = opts or {}
       local buf = (opts.buf == nil or opts.buf == 0) and vim.api.nvim_get_current_buf() or opts.buf --[[@as integer]]
-      local result = run(buf, vim.api.nvim_buf_get_lines(buf, 0, -1, true), opts.range)
+      local result = run(buf, vim.api.nvim_buf_get_lines(buf, 0, -1, true), opts.range, opts.arrangement)
       if result then
         apply(buf, result.edits)
       end

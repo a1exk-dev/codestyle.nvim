@@ -132,4 +132,32 @@ function M.trim_changed(old, new, keep_blank_lines)
   return result
 end
 
+--- Where a position of the text is after the edits: an edit that ends at or
+--- before it moves it, and an edit around it moves it to the start of the new text.
+---@param row integer 0-based
+---@param col integer
+---@param edits codestyle.Edit[] in text order, not overlapping
+---@return integer row
+---@return integer col
+function M.shift(row, col, edits)
+  -- The change of the rows, and of the columns on the old row `last_row`,
+  -- after the edits so far.
+  local row_delta, col_delta, last_row = 0, 0, -1
+  for _, edit in ipairs(edits) do
+    local inserted = vim.split(edit.text, '\n', { plain = true })
+    local start_row = edit.start_row + row_delta
+    local start_col = edit.start_col + (edit.start_row == last_row and col_delta or 0)
+    if edit.end_row < row or (edit.end_row == row and edit.end_col <= col) then
+      local end_row = start_row + #inserted - 1
+      local end_col = (#inserted == 1 and start_col or 0) + #inserted[#inserted]
+      row_delta, col_delta, last_row = end_row - edit.end_row, end_col - edit.end_col, edit.end_row
+    elseif edit.start_row < row or (edit.start_row == row and edit.start_col < col) then
+      return start_row, start_col
+    else
+      break
+    end
+  end
+  return row + row_delta, col + (row == last_row and col_delta or 0)
+end
+
 return M

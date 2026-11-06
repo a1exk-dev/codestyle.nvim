@@ -1,5 +1,5 @@
 -- The `:Codestyle` command (ADR-0014). With no argument it opens the Menu
--- (#50 New decisions).
+-- (#50 New decisions). `arrange` always rearranges (ADR-0011).
 
 local M = {}
 
@@ -7,6 +7,14 @@ local M = {}
 local subcommands = {
   format = function(opts)
     require('codestyle').format({ buf = 0, range = opts.range > 0 and { opts.line1, opts.line2 } or nil })
+  end,
+  -- Rearranges also when "Rearrange when formatting" is off, then formats (ADR-0011).
+  arrange = function(opts)
+    require('codestyle').format({
+      buf = 0,
+      range = opts.range > 0 and { opts.line1, opts.line2 } or nil,
+      arrangement = 'force',
+    })
   end,
 }
 

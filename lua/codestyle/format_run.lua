@@ -1,11 +1,12 @@
--- The Format Run (ADR-0002, ADR-0007, ADR-0018): the one run that formats
--- real buffers, the Preview and `codestyle.testing`. It skips a file that Do
--- not format matches, converts mixed line endings, then runs the plugin's
--- `before` steps, the Engine or the plugin's own `format(ctx)`, and the
+-- The Format Run (ADR-0002, ADR-0007, ADR-0011, ADR-0018): the one run that
+-- formats real buffers, the Preview and `codestyle.testing`. It skips a file
+-- that Do not format matches, converts mixed line endings, rearranges, then
+-- runs the plugin's `before` steps, the Engine or the plugin's own `format(ctx)`, and the
 -- `after` steps, with a new parse before each. It drops edits in marker
 -- regions and plugin edits outside the range, and at the end removes the
 -- trailing blanks of the lines it changed.
 
+local arrangement_step = require('codestyle.arrangement.step')
 local do_not_format = require('codestyle.do_not_format')
 local engine = require('codestyle.engine')
 local language_context = require('codestyle.language_context')
@@ -22,6 +23,8 @@ local text = require('codestyle.text')
 ---@field range? codestyle.Range the whole lines to format, nil for the whole text
 ---@field path? string the absolute path of the file, nil when it has none (the Preview)
 ---@field root? string the folder that Do not format matches `path` from: the repo root or the working directory
+---@field arrangement? codestyle.ArrangementMode default `auto`
+---@field buf? integer the buffer whose LSP clients Arrangement may ask; nil for the Preview
 
 --- A notice for the caller to report through Notices.
 ---@class codestyle.Notice
@@ -35,6 +38,7 @@ local text = require('codestyle.text')
 ---@field edits codestyle.Edit[] the minimal edits from the request's lines to `lines`, in text order
 ---@field notices codestyle.Notice[]
 ---@field fileformat? 'dos' set when mixed line endings convert to CRLF; `lines` then hold no `\r`
+---@field matches codestyle.ArrangementMatch[] the Slot and rule of each rearranged Arrangement Entry, at its row in `lines`
 
 ---@class codestyle.FormatRun
 ---@field run fun(request: codestyle.FormatRequest): codestyle.FormatResult
@@ -71,7 +75,7 @@ function M.new(deps)
 
       local skip = request.path and do_not_format_notice(request, values.general.do_not_format)
       if skip then
-        return { lines = request.lines, edits = {}, notices = { skip } }
+        return { lines = request.lines, edits = {}, notices = { skip }, matches = {} }
       end
 
       local formatter = language.formatter
@@ -87,6 +91,22 @@ function M.new(deps)
           { level = vim.log.levels.WARN, scope = 'session', key = marker_problem, message = marker_problem }
         )
       end
+
+      -- Arrangement ignores markers (ADR-0018), and moves entries in the range among themselves.
+      local arranged = arrangement_step.run({
+        registry = deps.registry,
+        languages = languages,
+        code_style = request.code_style,
+        lines = lines,
+        language = request.language,
+        parser = request.parser,
+        range = range,
+        mode = request.arrangement or 'auto',
+        buf = request.buf,
+        notices = notices,
+      })
+      lines, range = arranged.lines, arranged.range
+      local matches = arranged.matches
 
       ---@return codestyle.FormatContext
       local function context()
@@ -137,6 +157,9 @@ function M.new(deps)
           range = { start_row = range.start_row, end_row = end_row }
           edits = inside
         end
+        for _, match in ipairs(matches) do
+          match.row, match.col = text.shift(match.row, match.col, edits)
+        end
         lines = text.apply(lines, edits)
       end
 
@@ -158,7 +181,13 @@ function M.new(deps)
       local keep = keep_key ~= nil and vim.tbl_get(values, unpack(vim.split(keep_key, '.', { plain = true }))) == true
       lines = text.trim_changed(converted, lines, keep)
 
-      return { lines = lines, edits = text.diff(request.lines, lines), notices = notices, fileformat = fileformat }
+      return {
+        lines = lines,
+        edits = text.diff(request.lines, lines),
+        notices = notices,
+        fileformat = fileformat,
+        matches = matches,
+      }
     end,
   }
 end
