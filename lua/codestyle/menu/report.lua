@@ -32,7 +32,7 @@ function M.lines(report, name)
   ---@param title string
   ---@param items any[]
   ---@param text fun(item: any): string
-  local function section(title, items, text)
+  local function list(title, items, text)
     if #items > 0 then
       table.insert(lines, '  ' .. title)
       for _, item in ipairs(items) do
@@ -51,15 +51,15 @@ function M.lines(report, name)
     if language.no_scheme then
       table.insert(lines, '  The Language Plugin reads no Scheme XML: its defaults are used')
     end
-    section('Imported', language.imported, function(value)
+    list('Imported', language.imported, function(value)
       return ('%s = %s'):format(value.key, json(value.value))
     end)
-    section('Left out (Options that v1 leaves out)', language.left_out, same)
-    section('Unknown fields', language.unknown, same)
-    section('Invalid (defaults used)', language.invalid, function(invalid)
+    list('Left out (Options that v1 leaves out)', language.left_out, same)
+    list('Unknown fields', language.unknown, same)
+    list('Invalid (defaults used)', language.invalid, function(invalid)
       return ('%s: %s = %s: %s'):format(invalid.key, invalid.field, json(invalid.value), invalid.message)
     end)
-    section('Not converted', language.not_converted, function(part)
+    list('Not converted', language.not_converted, function(part)
       return ('%s: %s'):format(part.part, part.reason)
     end)
     if language.arrangement then

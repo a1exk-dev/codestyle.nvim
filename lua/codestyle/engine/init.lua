@@ -183,6 +183,8 @@ function M.layout(ctx, languages)
   if ctx.range then
     vim.list_extend(parts, read_only.outside(ctx.range))
   end
+  -- The source ends with a newline (`text.source`): its empty last line
+  -- keeps every node position valid.
   local lines = vim.split(ctx.source, '\n', { plain = true })
 
   local dialects = {} ---@type table<string, codestyle.Dialect>

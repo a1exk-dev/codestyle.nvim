@@ -22,9 +22,10 @@ local T = MiniTest.new_set({
 ---@param root? string
 ---@return table? broken the broken file, when the Draft cannot open
 local function open_draft(scope, root)
+  child:services()
   return child.lua(
     [[
-      local draft, broken = require('codestyle.instance').get().draft(...)
+      local draft, broken = _G.core.draft(...)
       _G.draft = draft
       return broken
     ]],
@@ -367,20 +368,19 @@ T['Presets'] = MiniTest.new_set()
 ---@param id string
 ---@return string[]
 local function preset_labels(id)
-  return child.lua(
-    [[return vim.tbl_map(function(preset) return preset.label end, require('codestyle.instance').get().presets.list(...))]],
-    { id }
-  )
+  child:services()
+  return child.lua([[return vim.tbl_map(function(preset) return preset.label end, _G.core.presets.list(...))]], { id })
 end
 
 --- Applies the Preset with this label of a language's list to the Draft.
 ---@param id string
 ---@param label string
 local function apply_preset(id, label)
+  child:services()
   child.lua(
     [[
       local id, label = ...
-      local presets = require('codestyle.instance').get().presets
+      local presets = _G.core.presets
       for _, preset in ipairs(presets.list(id)) do
         if preset.label == label then
           return presets.apply(_G.draft, preset)
@@ -441,7 +441,9 @@ T['Presets']['skips what it cannot apply, lists it in one notice and never touch
 end
 
 T['Presets']['user Presets from setup come after the plugin ones, marked (user), and a repeated name hides neither'] = function()
-  child.lua([[require('codestyle').setup({
+  child:services()
+  -- The choices that `require('codestyle').setup{}` keeps.
+  child.lua([[_G.core.setup.set({
     presets = {
       { name = 'Roomy', language = 'lua', values = { lua = { indent = { size = 3 } } } },
       { name = 'Tight', language = 'alt', values = { alt = { spaces = { around_assignment = false } } } },

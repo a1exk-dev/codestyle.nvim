@@ -2,6 +2,7 @@
 -- values and the Menu's state to the text of a pane. Each pane is drawn whole
 -- from its view, so labels are buffer text and `/` finds them.
 
+local option_types = require('codestyle.menu.option_types')
 local schema = require('codestyle.schema')
 
 local M = {}
@@ -150,31 +151,7 @@ end
 ---@return string text
 ---@return string group
 function M.value_text(option, value)
-  if option.type == 'boolean' then
-    return value and '[x]' or '[ ]', 'Special'
-  elseif option.type == 'integer' then
-    return ('[ %d ]'):format(value), 'Number'
-  elseif option.type == 'choice' then
-    return ('‹%s›'):format(M.choice_label(option, value)), 'Constant'
-  elseif option.type == 'string' then
-    return ('"%s"'):format(value), 'String'
-  elseif option.type == 'list' then
-    return ('[%s]'):format(table.concat(vim.tbl_map(tostring, value), ', ')), 'Constant'
-  end
-  return table.concat(value, ' › '), 'Constant'
-end
-
---- The label of a choice id, or the id when the Option has no such choice.
----@param option codestyle.OptionSpec
----@param id any
----@return string
-function M.choice_label(option, id)
-  for _, choice in ipairs(option.choices or {}) do
-    if choice.id == id then
-      return choice.label
-    end
-  end
-  return tostring(id)
+  return option_types.of(option).control(option, value)
 end
 
 --- The value of an Option in the resolved values of its language.
@@ -258,7 +235,7 @@ function M.tab_rows(opts)
       b.add(crumb, 'Comment')
     end
     local span
-    if option.type == 'boolean' then
+    if option_types.of(option).checkbox then
       local text, group = M.value_text(option, M.value(opts.values, option.key))
       span = b.add(text, active and group or 'Comment')
       label(option, ' ' .. option.label, active)

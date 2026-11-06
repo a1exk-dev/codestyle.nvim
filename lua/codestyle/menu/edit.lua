@@ -1,12 +1,13 @@
--- The Menu's editors of the six Option types (ADR-0003, the #11 resolution):
--- they turn an action on an Option row into a Draft operation. `<Space>` and
+-- The Menu's Option editing (ADR-0003, the #11 resolution): it turns an
+-- action on an Option row into a Draft operation, with the behaviour of each
+-- type from `menu.option_types`. `<Space>` and
 -- a right-click toggle a boolean and cycle a choice; `<CR>` and a click edit
 -- (`vim.ui.select` for a choice, `vim.ui.input` for an integer or a string, a
 -- float for a list or an order); `l`/`h` step; `x` resets. An edit on a
 -- dimmed Option is refused with a notice that names the Option it needs.
 
-local float = require('codestyle.menu.float')
 local general = require('codestyle.general')
+local option_types = require('codestyle.menu.option_types')
 local schema = require('codestyle.schema')
 local view = require('codestyle.menu.view')
 
@@ -46,32 +47,6 @@ local function option_of(spec, key)
   end
 end
 
---- The next or the previous value for `l`/`h` and for cycling; nil when the
---- type has no such step or an integer would leave its range.
----@param option codestyle.OptionSpec
----@param value any
----@param delta integer 1 or -1
----@return any
-local function step_value(option, value, delta)
-  if option.type == 'boolean' then
-    return not value
-  elseif option.type == 'integer' then
-    local next_value = value + delta
-    if (option.min and next_value < option.min) or (option.max and next_value > option.max) then
-      return nil
-    end
-    return next_value
-  elseif option.type == 'choice' then
-    local choices = option.choices or {}
-    for index, choice in ipairs(choices) do
-      if choice.id == value then
-        return choices[(index - 1 + delta) % #choices + 1].id
-      end
-    end
-    return choices[1] and choices[1].id
-  end
-end
-
 ---@param deps { notices: codestyle.Notices, on_float_close: fun() }
 ---@return codestyle.menu.Edit
 function M.new(deps)
@@ -93,14 +68,10 @@ function M.new(deps)
     local requires = assert(option.requires)
     local needed = option_of(target.spec, requires.key)
     local name = needed and needed.label or requires.key
-    local want ---@type string
     local value = requires.is ~= nil and requires.is or requires.is_not
-    if needed and needed.type == 'boolean' then
-      want = (value == true) == (requires.is ~= nil) and 'on' or 'off'
-    else
-      local shown = needed and needed.type == 'choice' and view.choice_label(needed, value) or tostring(value)
-      want = (requires.is ~= nil and 'set to "%s"' or 'set to another value than "%s"'):format(shown)
-    end
+    local is = requires.is ~= nil
+    local want = needed and option_types.of(needed).wanted(needed, value, is)
+      or (is and 'set to "%s"' or 'set to another value than "%s"'):format(tostring(value))
     notify(vim.log.levels.WARN, ('"%s" is inactive: it needs "%s" %s'):format(option.label, name, want))
     return true
   end
@@ -135,93 +106,8 @@ function M.new(deps)
     return ok
   end
 
-  ---@param target codestyle.menu.Target
-  ---@param value any
-  local function edit_integer(target, value)
-    local option = target.option
-    local hint = option.inherit and ' (empty: inherit General)' or ''
-    vim.ui.input({
-      prompt = ('%s [%s–%s]%s: '):format(option.label, option.min or '', option.max or '', hint),
-      default = tostring(value),
-    }, function(input)
-      if input == nil then
-        return
-      end
-      input = vim.trim(input)
-      if input == '' then
-        if option.inherit then
-          target.draft.reset(target.language, option.key)
-        end
-        return
-      end
-      set(target, tonumber(input) or input)
-    end)
-  end
-
-  ---@param target codestyle.menu.Target
-  ---@param value any
-  local function edit_choice(target, value)
-    vim.ui.select(target.option.choices or {}, {
-      prompt = target.option.label,
-      format_item = function(choice)
-        return (choice.id == value and '● ' or '  ') .. choice.label
-      end,
-    }, function(choice)
-      if choice then
-        set(target, choice.id)
-      end
-    end)
-  end
-
-  ---@param target codestyle.menu.Target
-  ---@param value any
-  local function edit_list(target, value)
-    local option = target.option
-    float.list({
-      title = option.label,
-      lines = vim.tbl_map(tostring, value),
-      apply = function(items)
-        if option.item == 'integer' then
-          items = vim.tbl_map(function(item)
-            return tonumber(item) or item
-          end, items)
-        end
-        return set(target, items)
-      end,
-      on_close = deps.on_float_close,
-    })
-  end
-
-  ---@param target codestyle.menu.Target
-  ---@param value any
-  local function edit_order(target, value)
-    float.order({
-      title = target.option.label,
-      lines = vim.deepcopy(value),
-      apply = function(members)
-        return set(target, members)
-      end,
-      on_close = deps.on_float_close,
-    })
-  end
-
-  ---@type table<codestyle.OptionType, fun(target: codestyle.menu.Target, value: any)>
-  local editors = {
-    boolean = function(target, value)
-      set(target, not value)
-    end,
-    integer = edit_integer,
-    choice = edit_choice,
-    string = function(target, value)
-      vim.ui.input({ prompt = target.option.label .. ': ', default = value }, function(input)
-        if input ~= nil then
-          set(target, input)
-        end
-      end)
-    end,
-    list = edit_list,
-    order = edit_order,
-  }
+  ---@type codestyle.menu.Editing
+  local editing = { set = set, on_float_close = deps.on_float_close }
 
   ---@type codestyle.menu.Edit
   return {
@@ -231,16 +117,16 @@ function M.new(deps)
         target.draft.reset(target.language, option.key)
         return
       end
-      local toggles = option.type == 'boolean' or option.type == 'choice'
-      if (action == 'toggle' and not toggles) or refused(target) then
+      local behaviour = option_types.of(option)
+      if (action == 'toggle' and not behaviour.toggles) or refused(target) then
         return
       end
       local value = view.value(values_of(target), option.key)
       if action == 'edit' then
-        editors[option.type](target, value)
+        behaviour.edit(target, value, editing)
         return
       end
-      local next_value = step_value(option, value, action == 'prev' and -1 or 1)
+      local next_value = behaviour.step(option, value, action == 'prev' and -1 or 1)
       if next_value ~= nil then
         set(target, next_value)
       end

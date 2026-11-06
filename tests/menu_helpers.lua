@@ -195,11 +195,16 @@ function M.groups_at(child, name, text)
   error(('no row with "%s" in %s'):format(text, name))
 end
 
---- Checks the screen against `tests/screenshots/<name>`.
+--- Checks the screen against `tests/screenshots/<name>`. With
+--- `CODESTYLE_SKIP_SCREENSHOTS` set (the nightly CI job, whose rendering
+--- differs) it compares nothing; the facts of each test still run.
 ---@param child codestyle.test.Child
 ---@param name string
 function M.screenshot(child, name)
   M.settle(child)
+  if vim.env.CODESTYLE_SKIP_SCREENSHOTS then
+    return
+  end
   MiniTest.expect.reference_screenshot(child.get_screenshot({ redraw = true }), 'tests/screenshots/' .. name)
 end
 

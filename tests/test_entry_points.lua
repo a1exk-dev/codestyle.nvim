@@ -216,6 +216,29 @@ T['conform']['conform loaded during startup gets codestyle too'] = function()
   expect.equality(child.lua_get('type(require("conform").formatters.codestyle)'), 'table')
 end
 
+T['conform']['conform added to the runtimepath after startup gets codestyle too'] = function()
+  -- As `:packadd conform.nvim` after VimEnter in a config without lazy.nvim:
+  -- the child starts with conform on the runtimepath, so take it off and
+  -- forget its modules first.
+  child.lua([[
+    local dir = vim.fs.dirname(vim.fs.dirname(vim.api.nvim_get_runtime_file('plugin/conform.lua', false)[1]))
+    vim.opt.runtimepath:remove(dir)
+    for name in pairs(package.loaded) do
+      if name == 'conform' or vim.startswith(name, 'conform.') then
+        package.loaded[name] = nil
+      end
+    end
+    vim.opt.runtimepath:append(dir)
+    vim.cmd.runtime('plugin/conform.lua')
+    require('conform').setup({ formatters_by_ft = { lua = { 'codestyle' } } })
+  ]])
+  local buf = child:open_buffer({ filetype = 'lua', lines = three_lines })
+
+  child.lua('require("conform").format({ bufnr = ... })', { buf })
+
+  expect.equality(child:lines(buf), { 'x = 1', 'y = 2', 'z = 3' })
+end
+
 T['conform']['formats the buffer'] = function()
   lazy_load_conform({ formatters_by_ft = { lua = { 'codestyle' } } })
   local buf = child:open_buffer({ filetype = 'lua', lines = three_lines })

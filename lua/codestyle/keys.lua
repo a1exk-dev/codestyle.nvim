@@ -3,7 +3,7 @@
 -- `setup{ keys = false }`.
 
 ---@class codestyle.Keys
---- Maps the default key, or removes the Core's own mapping when the settings
+--- Maps the default key, or removes the Core's own mapping when the choices of `setup{}`
 --- turn keys off. It can run any number of times.
 ---@field apply fun()
 
@@ -13,7 +13,7 @@ local lhs = '<leader>cf'
 local rhs = '<Plug>(codestyle-format)'
 local modes = { 'n', 'x' }
 
----@param deps { settings: fun(): codestyle.Settings }
+---@param deps { setup: fun(): codestyle.Setup }
 ---@return codestyle.Keys
 function M.new(deps)
   --- The modes where the Core mapped the key. A mapping made by anyone else
@@ -24,7 +24,7 @@ function M.new(deps)
   ---@type codestyle.Keys
   return {
     apply = function()
-      local on = deps.settings().keys ~= false
+      local on = deps.setup().keys ~= false
       for _, mode in ipairs(modes) do
         if on and vim.fn.maparg(lhs, mode) == '' then
           vim.keymap.set(mode, lhs, rhs, { desc = 'codestyle.nvim: format' })

@@ -41,13 +41,33 @@ vim.api.nvim_create_autocmd('User', {
   end,
 })
 
+--- Adds the conform formatter once conform's plugin is loaded. Without
+--- lazy.nvim a config may require conform's module only on a later event
+--- (the first save), so the module is required here.
+local function register_conform()
+  if pcall(require, 'conform') then
+    require('codestyle.instance').get().conform.register()
+  end
+end
+
+-- A conform that loads after startup without lazy.nvim (`:packadd`): its
+-- plugin file is sourced when it loads.
+vim.api.nvim_create_autocmd('SourcePost', {
+  group = group,
+  pattern = '*/plugin/conform.lua',
+  desc = 'codestyle.nvim: add the conform formatter when conform loads',
+  callback = register_conform,
+})
+
 -- The default key waits for the end of startup, so that the user's
 -- `mapleader`, own mappings and `setup{ keys = false }` come first. A conform
--- that the user's config loaded by then gets the formatter too.
+-- that the user's config loaded by then, or whose plugin is on the
+-- runtimepath, gets the formatter too.
 local function after_startup()
-  local instance = require('codestyle.instance').get()
-  instance.keys.apply()
-  instance.conform.register()
+  require('codestyle.instance').get().keys.apply()
+  if package.loaded.conform or #vim.api.nvim_get_runtime_file('plugin/conform.lua', false) > 0 then
+    register_conform()
+  end
 end
 if vim.v.vim_did_enter == 1 then
   vim.schedule(after_startup)

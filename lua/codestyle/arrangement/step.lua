@@ -26,6 +26,7 @@ local text = require('codestyle.text')
 ---@field mode codestyle.ArrangementMode
 ---@field buf? integer the buffer whose LSP clients serve `ctx.lsp`
 ---@field notices codestyle.Notice[] gets the step's notices
+---@field parse fun(source: string, parser: string): TSNode parses the whole text, through the Preview's cache when it has one
 
 ---@class codestyle.ArrangementStepResult
 ---@field lines string[]
@@ -117,12 +118,12 @@ function M.run(request)
   local host = request.languages.get(request.language)
   local stored, plugin = plan(request.language)
   if stored and plugin then
-    local source = table.concat(lines, '\n')
+    local source = text.source(lines)
     arrange(
       context(host, stored, {
         parser = request.parser,
         source = source,
-        root = vim.treesitter.get_string_parser(source, request.parser):parse()[1]:root(),
+        root = request.parse(source, request.parser),
       }),
       stored,
       plugin
@@ -136,11 +137,11 @@ function M.run(request)
     return id ~= request.language and spec ~= nil and spec.arrangement ~= nil
   end)
   if host.formatter.build and others then
-    local source = table.concat(lines, '\n')
+    local source = text.source(lines)
     local ctx = {
       language = request.language,
       parser = request.parser,
-      root = vim.treesitter.get_string_parser(source, request.parser):parse()[1]:root(),
+      root = request.parse(source, request.parser),
       source = source,
       values = host.values,
       uses = host.uses,
@@ -160,7 +161,7 @@ function M.run(request)
         part_stored, part_plugin = plan(language.id)
       end
       if language and part_stored and part_plugin then
-        local part_source = table.concat(lines, '\n')
+        local part_source = text.source(lines)
         arrange(
           context(language, part_stored, {
             parser = language.parser,

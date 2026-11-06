@@ -1,7 +1,7 @@
 -- Arrangement (ADR-0011): the port of IntelliJ's `ArrangementEngine`. It owns
 -- the stored shape of a language's `arrangement` key and its validation, and
 -- it matches, sorts and moves the Arrangement Entries that a Language Plugin
--- finds: Keep-Together Rules first, then each group's root goes to the rule
+-- finds: Keep-Together Rules first, then each linked set's root goes to the rule
 -- of the highest priority that matches it, then the Slots are walked in order.
 
 local text = require('codestyle.text')
@@ -43,7 +43,7 @@ local text = require('codestyle.text')
 ---@field col integer
 ---@field end_row integer where the entry ends, 0-based
 ---@field end_col integer exclusive
----@field slot? integer nil when no rule matched it, as a member of another entry's Keep-Together group
+---@field slot? integer nil when no rule matched it, as an entry that follows another one by a Keep-Together Rule
 ---@field rule? integer the rule's place in its Slot
 
 --- What a Language Plugin gives Arrangement: the spec's data and the code.
@@ -390,16 +390,17 @@ local function by_name(entries)
   return sorted
 end
 
---- The Keep-Together groups of one sibling group (IntelliJ's groupers): each
---- dependent follows its root, and a root may itself follow another root.
+--- The linked sets of sibling entries that Keep-Together Rules make (IntelliJ's
+--- groupers): each dependent follows its root, and a root may itself follow
+--- another root.
 ---@param entries codestyle.ArrangementEntry[] in text order
 ---@param keep_together codestyle.KeepTogether[]
 ---@return table<codestyle.ArrangementEntry, codestyle.ArrangementEntry> parent the root each dependent follows
 ---@return table<codestyle.ArrangementEntry, codestyle.ArrangementEntry[]> dependents of each root, in the order they follow it
-local function groups(entries, keep_together)
-  local member = {}
+local function linked_sets(entries, keep_together)
+  local sibling = {}
   for _, entry in ipairs(entries) do
-    member[entry] = true
+    sibling[entry] = true
   end
   local parent, dependents = {}, {}
 
@@ -408,7 +409,7 @@ local function groups(entries, keep_together)
   ---@return codestyle.ArrangementEntry[]
   local function links(entry, kind)
     return vim.tbl_filter(function(linked)
-      return member[linked] and linked ~= entry
+      return sibling[linked] and linked ~= entry
     end, entry.links[kind] or {})
   end
 
@@ -497,7 +498,7 @@ local function groups(entries, keep_together)
           end
         end
         if keep.order == 'by_name' and #claimed > 0 then
-          -- The group is sorted by name, and its first member is its root.
+          -- The linked set is sorted by name, and its first entry is its root.
           local sorted = by_name({ root, unpack(claimed) })
           for _, target in ipairs(claimed) do
             parent[target] = nil
@@ -527,14 +528,14 @@ local function groups(entries, keep_together)
   return parent, dependents
 end
 
---- The new order of one sibling group, and the rule that each root matched.
+--- The new order of sibling entries, and the rule that each root matched.
 ---@param entries codestyle.ArrangementEntry[] in text order
 ---@param arrangement codestyle.Arrangement
 ---@param rules codestyle.CompiledRule[]
 ---@return codestyle.ArrangementEntry[] order
 ---@return table<codestyle.ArrangementEntry, codestyle.CompiledRule> matched
 local function sort(entries, arrangement, rules)
-  local parent, dependents = groups(entries, arrangement.keep_together)
+  local parent, dependents = linked_sets(entries, arrangement.keep_together)
   local roots = vim.tbl_filter(function(entry)
     return not parent[entry]
   end, entries)
@@ -655,7 +656,7 @@ function M.arrange(ctx, arrangement, plugin, lines)
     return ('\n'):rep(count + 1) .. gap:match('[^\n]*$')
   end
 
-  local emit_group
+  local emit_siblings
   ---@param entry codestyle.ArrangementEntry
   ---@param rule? codestyle.CompiledRule
   local function emit_entry(entry, rule)
@@ -666,13 +667,13 @@ function M.arrange(ctx, arrangement, plugin, lines)
       emit(source:sub(first(entry) + 1, last(entry)))
     else
       emit(source:sub(first(entry) + 1, first(children[1])))
-      emit_group(children)
+      emit_siblings(children)
       emit(source:sub(last(children[#children]) + 1, last(entry)))
     end
     match.end_offset = length
   end
   ---@param entries codestyle.ArrangementEntry[]
-  emit_group = function(entries)
+  emit_siblings = function(entries)
     local order, matched = sort(entries, arrangement, rules)
     for index, entry in ipairs(order) do
       if index > 1 then
@@ -686,7 +687,7 @@ function M.arrange(ctx, arrangement, plugin, lines)
 
   emit(source:sub(1, first(top[1])))
   local span_start = length
-  emit_group(top)
+  emit_siblings(top)
   local span_end = length
   emit(source:sub(last(top[#top]) + 1))
 

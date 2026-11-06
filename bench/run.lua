@@ -17,13 +17,12 @@ for _, dir in ipairs(_G.arg) do
   vim.opt.runtimepath:append(vim.fs.normalize(vim.fn.fnamemodify(dir, ':p')))
 end
 
-local notices = require('codestyle.notices').new({
+local core = require('codestyle.instance').new({
   notify = function(message)
     io.stdout:write(message, '\n')
   end,
 })
-local registry = require('codestyle.registry').new({ notices = notices, api = require('codestyle').api })
-local format_run = require('codestyle.format_run').new({ registry = registry })
+local registry, format_run = core.registry, core.format_run
 local code_style = require('codestyle.code_style')
 
 ---@param values number[]

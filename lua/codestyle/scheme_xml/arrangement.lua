@@ -158,10 +158,11 @@ function M.convert(spec, element)
   local rules = child(element, 'rules')
   if rules then
     raw.slots = {}
-    for slot_index, section in ipairs(rules.children) do
-      local rule_elements = section.name == 'rule' and { section } or {}
+    -- Each child of <rules> is one Slot: a PhpStorm <section> of rules, or a bare <rule>.
+    for slot_index, slot_element in ipairs(rules.children) do
+      local rule_elements = slot_element.name == 'rule' and { slot_element } or {}
       local commented = false
-      for _, each in ipairs(section.name == 'section' and section.children or {}) do
+      for _, each in ipairs(slot_element.name == 'section' and slot_element.children or {}) do
         if each.name == 'rule' then
           table.insert(rule_elements, each)
         elseif (each.name == 'start_comment' or each.name == 'end_comment') and not commented then

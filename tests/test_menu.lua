@@ -172,6 +172,32 @@ T['the Preview follows the Draft'] = function()
   expect.equality(pane_lines('preview'), { 'x = 1', "name = 'codestyle'" })
 end
 
+T['the Preview keeps the parse of a sample whose text did not change'] = function()
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua' })
+  -- Every text that Tree-sitter parses from a string.
+  child.lua([[
+    _G.parsed = {}
+    local get_string_parser = vim.treesitter.get_string_parser
+    vim.treesitter.get_string_parser = function(source, ...)
+      table.insert(_G.parsed, source)
+      return get_string_parser(source, ...)
+    end
+  ]])
+  open_menu()
+  local sample = child.lua_get('_G.parsed[1]')
+  child.lua('_G.parsed = {}')
+
+  child.type_keys('l')
+  settle()
+
+  expect.equality(pane_lines('preview'), { 'x = 1', "name = 'codestyle'" })
+  expect.equality(vim.list_contains(child.lua_get('_G.parsed'), sample), false)
+  -- The next Draft gets its own output, not a kept one.
+  child.type_keys('l')
+  settle()
+  expect.equality(pane_lines('preview'), { 'x=1', "name='codestyle'" })
+end
+
 T['holding a value-changing key ends with the Preview on the latest Draft'] = function()
   child:open_buffer({ lines = { 'x=1' }, filetype = 'lua' })
   open_menu()
@@ -220,14 +246,20 @@ T['a Preview run that raises keeps the last good output and shows the marker'] =
   settle()
   expect.equality(pane_lines('preview'), { 'x = 1' })
   expect.equality(winbar_text('preview'), '⚠ broken: formatter error')
-  local notices = child:notices()
-  expect.equality(#notices, 1)
-  expect.equality(notices[1].level, H.levels.ERROR)
-  expect.equality(notices[1].message:find('the fake broken plugin raises on purpose', 1, true) ~= nil, true)
+  -- The full error goes to :messages only (ADR-0016), once per new failure.
+  expect.equality(child:notices(), {})
+  local messages = vim.split(child.cmd_capture('messages'), '\n', { trimempty = true })
+  expect.equality(#messages, 1)
+  expect.equality(vim.startswith(messages[1], 'codestyle: the Preview of "broken" failed: '), true)
+  expect.equality(messages[1]:find('the fake broken plugin raises on purpose', 1, true) ~= nil, true)
 
   child.type_keys('l')
   settle()
   expect.equality(winbar_text('preview'), ' Preview')
+  -- A failure after a good run is a new one.
+  child.type_keys('l')
+  settle()
+  expect.equality(#vim.split(child.cmd_capture('messages'), '\n', { trimempty = true }), 2)
 end
 
 T['a broken Code Style file does not open the Menu'] = function()
