@@ -8,6 +8,8 @@ return {
   name = 'Lua',
   filetypes = { 'lua' },
   parsers = { default = { 'lua' } },
+  -- For the `uses` checks of the broken fakes (ADR-0007).
+  exports = { version = 1 },
   options = {
     {
       key = 'spaces.around_assignment',

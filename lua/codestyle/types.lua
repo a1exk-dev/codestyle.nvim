@@ -18,9 +18,17 @@
 ---@field id string the language id, the key under `languages` in a Code Style file (ADR-0003)
 ---@field name string the display name
 ---@field filetypes string[] the Neovim filetypes that the plugin claims (ADR-0015)
+---@field match? fun(buf: integer): boolean claims a buffer whose filetype no spec lists, or that has none; build it with `require('codestyle').match_globs` (ADR-0015)
 ---@field parsers table<string, string[]> filetype → parser names, first installed wins; `default` is required (ADR-0015)
+---@field uses? table<string, integer> language id → the export version this plugin needs from that plugin (ADR-0007)
+---@field exports? codestyle.Exports what this plugin offers to plugins that use it (ADR-0007)
 ---@field options codestyle.OptionSpec[]
 ---@field formatter string the module path of the `codestyle.Formatter`, required on first format
+
+--- What a Language Plugin offers to the plugins that `uses` it (ADR-0007).
+--- Within one version, only optional fields are added.
+---@class codestyle.Exports
+---@field version integer
 
 --- The resolved Option values of one language, nested like the stored keys.
 ---@alias codestyle.Values table<string, any>
