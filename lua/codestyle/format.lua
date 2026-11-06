@@ -26,6 +26,22 @@ local function apply(buf, edits)
   end
 end
 
+--- Tells the user why a buffer is not formatted. A refused plugin and one
+--- whose formatting is off are silent here: the Registry warned once.
+---@param notices codestyle.Notices
+---@param buf integer
+---@param no_choice codestyle.NoChoice
+local function report_no_choice(notices, buf, no_choice)
+  local warn = vim.log.levels.WARN
+  if no_choice.reason == 'no_claim' then
+    notices.report(warn, 'run', no_choice.filetype, no_choice.message)
+  elseif no_choice.reason == 'conflict' then
+    notices.report(warn, 'filetype', no_choice.filetype, no_choice.message)
+  elseif no_choice.reason == 'no_parser' then
+    notices.report(warn, 'buffer', ('%d:%s'):format(buf, no_choice.language), no_choice.message)
+  end
+end
+
 ---@param deps { notices: codestyle.Notices, selector: codestyle.Selector, store: codestyle.Store, format_run: codestyle.FormatRun }
 ---@return codestyle.FormatApi
 function M.new(deps)
@@ -38,13 +54,12 @@ function M.new(deps)
 
       local choice, no_choice = deps.selector.choose(buf)
       if not choice then
-        no_choice = no_choice --[[@as codestyle.NoChoice]]
-        deps.notices.report(
-          vim.log.levels.WARN,
-          'run',
-          no_choice.filetype,
-          ('no Language Plugin claims the filetype "%s"'):format(no_choice.filetype)
-        )
+        report_no_choice(deps.notices, buf, no_choice --[[@as codestyle.NoChoice]])
+        return
+      end
+
+      local code_style = deps.store.for_buffer(buf)
+      if not code_style then
         return
       end
 
@@ -52,7 +67,7 @@ function M.new(deps)
         lines = vim.api.nvim_buf_get_lines(buf, 0, -1, true),
         language = choice.language,
         parser = choice.parser,
-        code_style = (deps.store.for_buffer(buf)),
+        code_style = code_style,
         range = opts.range and { start_row = opts.range[1] - 1, end_row = opts.range[2] - 1 },
       })
       for _, notice in ipairs(result.notices) do

@@ -1,7 +1,9 @@
 -- The fake `lua` formatter: one Block per parser node, one spacing rule, a
 -- `before` step that removes semicolons and an `after` step that turns
 -- single quotes into double quotes. The steps ignore `ctx.range` on purpose,
--- so the Core's dropping of edits outside it shows.
+-- so the Core's dropping of edits outside it shows. Other fixtures reuse this
+-- formatter without the `conversion` Options, so the steps are off there.
+-- `build` keeps a copy of `ctx.values` in `_G.codestyle_test_values` for tests.
 
 local block = require('codestyle.block')
 local spacing = require('codestyle.spacing')
@@ -43,6 +45,8 @@ end
 ---@type codestyle.Formatter
 return {
   build = function(ctx)
+    -- Lets a test read the values that the Core passes to a plugin.
+    _G.codestyle_test_values = vim.deepcopy(ctx.values)
     return build_node(ctx.root)
   end,
   rules = {
@@ -57,7 +61,7 @@ return {
   },
   before = {
     function(ctx)
-      if not ctx.values.conversion.semicolons then
+      if not vim.tbl_get(ctx.values, 'conversion', 'semicolons') then
         return {}
       end
       return vim.tbl_map(function(node)
@@ -67,7 +71,7 @@ return {
   },
   after = {
     function(ctx)
-      if not ctx.values.conversion.double_quotes then
+      if not vim.tbl_get(ctx.values, 'conversion', 'double_quotes') then
         return {}
       end
       local edits = {}

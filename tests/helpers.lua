@@ -82,13 +82,16 @@ end
 
 --- Opens a new buffer with these lines and this filetype and makes it current.
 --- Setting the lines is not an undo step, so one `u` after a format restores them.
----@param opts { lines: string[], filetype?: string }
+---@param opts { lines: string[], filetype?: string, name?: string } `name` is the buffer's file name (the file itself is not written)
 ---@return integer buf
 function Child:open_buffer(opts)
   return self.lua(
     [[
-      local lines, filetype = ...
+      local lines, filetype, name = ...
       local buf = vim.api.nvim_create_buf(true, false)
+      if name ~= '' then
+        vim.api.nvim_buf_set_name(buf, name)
+      end
       vim.api.nvim_set_current_buf(buf)
       local undolevels = vim.bo[buf].undolevels
       vim.bo[buf].undolevels = -1
@@ -97,7 +100,7 @@ function Child:open_buffer(opts)
       vim.bo[buf].filetype = filetype
       return buf
     ]],
-    { opts.lines, opts.filetype or '' }
+    { opts.lines, opts.filetype or '', opts.name or '' }
   )
 end
 
@@ -111,6 +114,12 @@ end
 ---@return string[]
 function Child:lines(buf)
   return self.api.nvim_buf_get_lines(buf, 0, -1, true)
+end
+
+--- The `ctx.values` that the fake `lua` formatter got in the last format run.
+---@return table
+function Child:plugin_values()
+  return self.lua_get('_G.codestyle_test_values')
 end
 
 --- Every `vim.notify` call of the child since `setup()`.
