@@ -123,6 +123,7 @@ T['Option types']['values of all six types are read'] = function()
     comments = { todo = 'FIXME' },
     names = { globals = { 'vim', 'describe' } },
     members = { order = { 'metamethods', 'fields', 'methods' } },
+    conversion = { semicolons = false, double_quotes = false },
     general = general_defaults,
   })
   expect.equality(child:notices(), {})
@@ -152,6 +153,7 @@ T['Option types']['each invalid value gives one WARN per file, and the default i
     comments = { todo = 'TODO' },
     names = { globals = { 'vim' } },
     members = { order = { 'fields', 'methods', 'metamethods' } },
+    conversion = { semicolons = false, double_quotes = false },
     general = general_defaults,
   })
   expect.equality(child:notices(), {

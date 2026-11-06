@@ -158,6 +158,16 @@ T['Alignment']['multiline call arguments align with the first one'] = function()
   expect.equality(format({ align = { call_arguments = true } }, lines), { 'foo(a,', '    b,', '    c)' })
 end
 
+T['Indent']['a range reindents only its own lines, from the kept lines around it'] = function()
+  child:write_global({ version = 1, languages = { lua = { indent = { size = 2 } } } })
+  local lines = { 'if a then', '      f()', 'g()', '      h()', 'end' }
+  local buf = child:open_buffer({ filetype = 'lua', lines = lines })
+
+  child:format({ buf = buf, range = { 3, 3 } })
+
+  expect.equality(child:lines(buf), { 'if a then', '      f()', '      g()', '      h()', 'end' })
+end
+
 T["the user's layout is kept where no Option asks for a change"] = function()
   local lines = {
     '-- a comment',

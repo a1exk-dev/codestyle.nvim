@@ -1,15 +1,19 @@
 -- `SpacingBuilder` for Language Plugins (ADR-0007): a port of IntelliJ's
 -- `com.intellij.formatting.SpacingBuilder`. A plugin lists rules once, at
--- load time; `get_spacing` returns the Spacing of the first rule that matches
--- the parent and the two children of a Gap, or nil.
+-- load time, and gives `rules()` as (part of) its `formatter.rules`: one
+-- `codestyle.Rule` per condition, in order, each naming the Block types it
+-- needs, so the Core skips only the rules whose node types the parser lacks.
+-- The first rule that matches the parent and the two children of a Gap gives
+-- its Spacing.
 --
 --   local sb = require('codestyle.spacing_builder').new({ keep_blank_lines = 2 })
 --     .around_inside('=', 'assignment_statement').space_if(function(values) return values.spaces.around end)
 --     .after(',').spaces(1)
+--   formatter.rules = sb.rules()
 --
 -- Upstream reads Option values when the builder is made. A plugin keeps no
 -- state between runs (ADR-0007), so here every count and condition is a value
--- or a function of the Option values, read when `get_spacing` is called.
+-- or a function of the Option values, read when a rule is called.
 -- Not ported: `parentDependentLFSpacing`.
 
 local spacing = require('codestyle.spacing')
@@ -37,8 +41,7 @@ local spacing = require('codestyle.spacing')
 ---@field within_pair fun(first: codestyle.BlockTypes, second: codestyle.BlockTypes): codestyle.SpacingRuleBuilder
 ---@field within_pair_inside fun(first: codestyle.BlockTypes, second: codestyle.BlockTypes, parent: codestyle.BlockTypes): codestyle.SpacingRuleBuilder
 ---@field append fun(other: codestyle.SpacingBuilder): codestyle.SpacingBuilder adds the other builder's rules after these
----@field get_spacing fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block, values: codestyle.Values): codestyle.Spacing?
----@field rules fun(): table[] the rules, for `append`
+---@field rules fun(): codestyle.Rule[] one rule per condition, in order, for `formatter.rules`
 
 --- Ends a rule: what the Gaps that the rule matches get.
 ---@class codestyle.SpacingRuleBuilder
@@ -82,7 +85,11 @@ end
 ---@param right? codestyle.BlockTypes
 ---@return table
 local function condition(parent, left, right)
-  return { parent = type_set(parent), left = type_set(left), right = type_set(right) }
+  local nodes = {}
+  for _, types in ipairs({ parent or {}, left or {}, right or {} }) do
+    vim.list_extend(nodes, type(types) == 'table' and types or { types })
+  end
+  return { parent = type_set(parent), left = type_set(left), right = type_set(right), nodes = nodes }
 end
 
 ---@param set? table<string, true>
@@ -96,7 +103,7 @@ end
 ---@return codestyle.SpacingBuilder
 function M.new(opts)
   opts = opts or {}
-  local rules = {} ---@type { condition: table, make: fun(values: codestyle.Values): codestyle.Spacing? }[]
+  local rules = {} ---@type codestyle.Rule[]
   ---@diagnostic disable-next-line: missing-fields
   local builder = {} ---@type codestyle.SpacingBuilder
 
@@ -116,7 +123,14 @@ function M.new(opts)
     ---@return codestyle.SpacingBuilder
     local function add(make)
       for _, each in ipairs(conditions) do
-        table.insert(rules, { condition = each, make = make })
+        table.insert(rules, {
+          nodes = each.nodes,
+          spacing = function(parent, left, right, values)
+            if contains(each.parent, parent) and contains(each.left, left) and contains(each.right, right) then
+              return make(values)
+            end
+          end,
+        })
       end
       return builder
     end
@@ -230,19 +244,6 @@ function M.new(opts)
   function builder.append(other)
     vim.list_extend(rules, other.rules())
     return builder
-  end
-
-  function builder.get_spacing(parent, left, right, values)
-    for _, rule in ipairs(rules) do
-      local each = rule.condition
-      if contains(each.parent, parent) and contains(each.left, left) and contains(each.right, right) then
-        local result = rule.make(values)
-        if result then
-          return result
-        end
-      end
-    end
-    return nil
   end
 
   return builder

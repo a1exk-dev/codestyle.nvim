@@ -8,6 +8,11 @@
 -- and Alignment. A line that passes the right margin records a wrap and starts
 -- the pass again; a backward-shift Alignment that finds a column further right
 -- does the same. Both only grow, so the passes end.
+--
+-- A Gap that touches a read-only part keeps its line feeds and spaces, and a
+-- line whose leading indent touches one keeps its indent; the pass places the
+-- leaves after them from where they are. A line's indent change is its own
+-- edit from column 0, so a range can free the indent of its first line.
 
 local M = {}
 
@@ -15,6 +20,7 @@ local M = {}
 ---@field spacing fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block): codestyle.Spacing?
 ---@field indent codestyle.IndentOptions
 ---@field right_margin integer the widest a line may be, in display columns
+---@field read_only codestyle.ReadOnly the text that must not change
 
 --- One leaf and the Gap before it.
 ---@class (private) codestyle.Leaf
@@ -25,6 +31,9 @@ local M = {}
 ---@field spacing? codestyle.Spacing
 ---@field wraps codestyle.Wrap[] the wrap groups whose line break may go before the leaf
 ---@field alignment? codestyle.Alignment the outermost alignment group that starts at the leaf
+---@field old_line_feeds integer the line feeds of the Gap before the leaf in the text
+---@field fixed_gap boolean the Gap before the leaf keeps its line feeds, and its spaces on one line
+---@field fixed_indent boolean the leaf keeps its column when it starts a line
 
 --- Where one pass puts a leaf.
 ---@class (private) codestyle.Place
@@ -93,17 +102,49 @@ end
 function M.edits(root, lines, options)
   local leaves, first_leaf = collect(root)
 
+  ---@param leaf codestyle.Leaf
+  ---@return integer start_row, integer start_col, integer end_row, integer end_col
+  local function range(leaf)
+    local block_range = leaf.block.range
+    return block_range[1], block_range[2], block_range[3], block_range[4]
+  end
+
+  ---@return boolean
+  local function touches(start_row, start_col, end_row, end_col)
+    return options.read_only.touches({
+      start_row = start_row,
+      start_col = start_col,
+      end_row = end_row,
+      end_col = end_col,
+      text = '',
+    })
+  end
+
   -- What does not change between passes.
   local first_member = {} ---@type table<codestyle.Wrap, integer>
   for index, leaf in ipairs(leaves) do
-    if leaf.owner then
-      leaf.spacing = options.spacing(leaf.owner, leaf.left, leaf.chain[1])
+    local start_row, start_col = range(leaf)
+    leaf.fixed_indent = touches(start_row, 0, start_row, start_col)
+    if index == 1 then
+      leaf.old_line_feeds, leaf.fixed_gap = start_row, true
+    else
+      local _, _, prev_end_row, prev_end_col = range(leaves[index - 1])
+      leaf.old_line_feeds = start_row - prev_end_row
+      if leaf.old_line_feeds > 0 then
+        leaf.fixed_gap = leaf.fixed_indent or touches(prev_end_row, prev_end_col, start_row, 0)
+      else
+        leaf.fixed_gap = touches(prev_end_row, prev_end_col, start_row, start_col)
+      end
+      if not leaf.fixed_gap then
+        leaf.spacing = options.spacing(leaf.owner, leaf.left, leaf.chain[1])
+      end
     end
     leaf.wraps = {}
     for _, block in ipairs(leaf.chain) do
       if block.wrap then
         first_member[block.wrap] = first_member[block.wrap] or index
-        if index ~= first_member[block.wrap] or block.wrap.wrap_first then
+        local may_wrap = index ~= first_member[block.wrap] or block.wrap.wrap_first
+        if may_wrap and not leaf.fixed_gap then
           table.insert(leaf.wraps, block.wrap)
         end
       end
@@ -111,22 +152,52 @@ function M.edits(root, lines, options)
     end
   end
 
-  ---@param leaf codestyle.Leaf
-  ---@return integer start_row, integer start_col, integer end_row, integer end_col
-  local function range(leaf)
-    local range = leaf.block.range
-    return range[1], range[2], range[3], range[4]
-  end
-
-  ---@param index integer
-  ---@return integer
-  local function leaf_end_row(index)
-    return leaves[index].block.range[3]
-  end
-
   local breaks = {} ---@type table<integer, true> leaves that a wrap if long puts on a new line
   local chopped = {} ---@type table<codestyle.Wrap, true> chop-down groups that do not fit
   local anchors = {} ---@type table<codestyle.Alignment, integer> columns of backward-shift groups
+
+  --- The line feeds of the Gap before a leaf.
+  ---@param index integer
+  ---@param leaf codestyle.Leaf
+  ---@return integer
+  local function line_feeds_of(index, leaf)
+    local old, spacing = leaf.old_line_feeds, leaf.spacing
+    if leaf.fixed_gap or not spacing then
+      return old
+    end
+    local line_feeds = 0
+    if old > 0 and spacing.keep_line_breaks then
+      line_feeds = math.min(old, (spacing.keep_blank_lines or math.huge) + 1)
+    end
+    line_feeds = math.max(line_feeds, spacing.min_line_feeds)
+    if line_feeds == 0 then
+      local wrapped = breaks[index]
+      for _, wrap in ipairs(leaf.wraps) do
+        wrapped = wrapped or chopped[wrap]
+      end
+      line_feeds = wrapped and 1 or 0
+    end
+    return line_feeds
+  end
+
+  --- The spaces of a Gap that stays on one line, and whether it keeps its text.
+  ---@param index integer
+  ---@param leaf codestyle.Leaf
+  ---@return integer, boolean
+  local function spaces_of(index, leaf)
+    local spacing = leaf.spacing
+    if spacing and leaf.old_line_feeds > 0 then
+      -- The Spacing joins the lines.
+      return spacing.min_spaces, false
+    end
+    local start_row, start_col = range(leaf)
+    local _, _, _, prev_end_col = range(leaves[index - 1])
+    local spaces = width(lines[start_row + 1]:sub(prev_end_col + 1, start_col))
+    if not spacing then
+      return spaces, true
+    end
+    return math.min(math.max(spaces, spacing.min_spaces), spacing.max_spaces), false
+  end
 
   --- One pass. Returns nil when a wrap was recorded, so the pass must run again.
   ---@return codestyle.Place[]?, table<codestyle.Alignment, integer>
@@ -140,52 +211,26 @@ function M.edits(root, lines, options)
 
     for index, leaf in ipairs(leaves) do
       local start_row, start_col, end_row, end_col = range(leaf)
-      local spacing = leaf.spacing
-      local line_feeds, gap_width, keep = 0, 0, false
-      if index == 1 then
-        line_feeds = start_row
-      else
-        local _, _, prev_end_row, prev_end_col = range(leaves[index - 1])
-        local old_line_feeds = start_row - prev_end_row
-        if not spacing then
-          line_feeds = old_line_feeds
-        elseif old_line_feeds > 0 and spacing.keep_line_breaks then
-          line_feeds = math.min(old_line_feeds, (spacing.keep_blank_lines or math.huge) + 1)
-        end
-        line_feeds = math.max(line_feeds, spacing and spacing.min_line_feeds or 0)
-        if line_feeds == 0 then
-          local wrapped = breaks[index]
-          for _, wrap in ipairs(leaf.wraps) do
-            wrapped = wrapped or chopped[wrap]
-          end
-          line_feeds = wrapped and 1 or 0
-        end
-        if line_feeds == 0 then
-          if spacing and old_line_feeds > 0 then
-            -- The Spacing joins the lines.
-            gap_width = spacing.min_spaces
-          else
-            gap_width = width(lines[start_row + 1]:sub(prev_end_col + 1, start_col))
-            keep = not spacing
-            if spacing then
-              gap_width = math.min(math.max(gap_width, spacing.min_spaces), spacing.max_spaces)
-            end
-          end
-        end
-      end
-
+      local line_feeds = index == 1 and start_row or line_feeds_of(index, leaf)
       local starts_line = index == 1 or line_feeds > 0
-      local gap_start = col
+      local gap_start, keep, fixed = col, false, false
       if starts_line then
         line = line + line_feeds
         line_first = index
-        local base = leaf.owner and line_indent[places[first_leaf[leaf.owner]].line] or 0
-        col = base
-        for _, block in ipairs(leaf.chain) do
-          col = col + indent_columns(block.indent, options.indent)
+        fixed = leaf.fixed_indent
+        if fixed then
+          col = width(lines[start_row + 1]:sub(1, start_col))
+        else
+          col = leaf.owner and line_indent[places[first_leaf[leaf.owner]].line] or 0
+          for _, block in ipairs(leaf.chain) do
+            col = col + indent_columns(block.indent, options.indent)
+          end
         end
       else
-        col = col + gap_width
+        local spaces
+        spaces, keep = spaces_of(index, leaf)
+        fixed = leaf.fixed_gap
+        col = col + spaces
       end
 
       local alignment = leaf.alignment
@@ -195,7 +240,7 @@ function M.edits(root, lines, options)
         local target = anchors[alignment] or first_col[alignment]
         if not target then
           first_col[alignment] = col
-        elseif starts_line or col < target then
+        elseif not fixed and (starts_line or col < target) then
           keep = keep and col == target
           col = target
         end
@@ -247,33 +292,42 @@ function M.edits(root, lines, options)
   until places
   ---@cast places codestyle.Place[]
 
-  ---@param edit codestyle.Edit
-  ---@return string
-  local function old_text(edit)
-    local rows = vim.list_slice(lines, edit.start_row + 1, edit.end_row + 1)
-    rows[#rows] = rows[#rows]:sub(1, edit.end_col)
-    rows[1] = rows[1]:sub(edit.start_col + 1)
-    return table.concat(rows, '\n')
+  local edits = {}
+
+  --- Adds the edit unless the text is already there.
+  local function edit(start_row, start_col, end_row, end_col, text)
+    local rows = vim.list_slice(lines, start_row + 1, end_row + 1)
+    rows[#rows] = rows[#rows]:sub(1, end_col)
+    rows[1] = rows[1]:sub(start_col + 1)
+    if table.concat(rows, '\n') ~= text then
+      table.insert(
+        edits,
+        { start_row = start_row, start_col = start_col, end_row = end_row, end_col = end_col, text = text }
+      )
+    end
   end
 
-  local edits = {}
   for index, leaf in ipairs(leaves) do
     local place = places[index]
     local start_row, start_col = range(leaf)
-    local edit ---@type codestyle.Edit?
-    if index == 1 or place.line_feeds > 0 and place.line_feeds == start_row - leaf_end_row(index - 1) then
-      -- The line breaks stay; only the indent of the line changes.
-      edit =
-        { start_row = start_row, start_col = 0, end_row = start_row, end_col = start_col, text = (' '):rep(place.col) }
-    elseif not place.keep then
-      local _, _, prev_end_row, prev_end_col = range(leaves[index - 1])
-      local text = place.line_feeds > 0 and ('\n'):rep(place.line_feeds) .. (' '):rep(place.col)
-        or (' '):rep(place.spaces)
-      edit =
-        { start_row = prev_end_row, start_col = prev_end_col, end_row = start_row, end_col = start_col, text = text }
+    local prev_end_row, prev_end_col = 0, 0
+    if index > 1 then
+      local _
+      _, _, prev_end_row, prev_end_col = range(leaves[index - 1])
     end
-    if edit and old_text(edit) ~= edit.text then
-      table.insert(edits, edit)
+    local old = leaf.old_line_feeds
+    if place.line_feeds > 0 and old > 0 or index == 1 then
+      if place.line_feeds ~= old then
+        edit(prev_end_row, prev_end_col, start_row, 0, ('\n'):rep(place.line_feeds))
+      end
+      if not leaf.fixed_indent then
+        edit(start_row, 0, start_row, start_col, (' '):rep(place.col))
+      end
+    elseif place.line_feeds > 0 then
+      -- A new line in a Gap that had none.
+      edit(prev_end_row, prev_end_col, start_row, start_col, ('\n'):rep(place.line_feeds) .. (' '):rep(place.col))
+    elseif not place.keep then
+      edit(prev_end_row, prev_end_col, start_row, start_col, (' '):rep(place.spaces))
     end
   end
   return edits

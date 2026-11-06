@@ -1,8 +1,10 @@
 -- The fake `lua` formatter: one Block per parser node (strings and comments
 -- are leaves), Spacing rules written with `SpacingBuilder`, Indents of nested
--- Blocks and continuation lines, a Wrap of call arguments and Alignments.
--- Other fixtures reuse it with fewer Options, so it reads every value with a
--- default.
+-- Blocks and continuation lines, a Wrap of call arguments and Alignments, a
+-- `before` step that removes semicolons and an `after` step that turns single
+-- quotes into double quotes. The steps ignore `ctx.range` on purpose, so the
+-- Core's dropping of edits outside it shows. Other fixtures reuse this
+-- formatter with fewer Options, so it reads every value with a default.
 -- `build` keeps a copy of `ctx.values` in `_G.codestyle_test_values` for tests.
 
 local alignment = require('codestyle.alignment')
@@ -116,6 +118,30 @@ local function build_node(node, values)
   return block.new({ node = node, children = children })
 end
 
+--- Every node of a type, in text order.
+---@param node TSNode
+---@param type string
+---@param found? TSNode[]
+---@return TSNode[]
+local function find(node, type, found)
+  found = found or {}
+  if node:type() == type then
+    table.insert(found, node)
+  end
+  for child in node:iter_children() do
+    find(child, type, found)
+  end
+  return found
+end
+
+---@param node TSNode
+---@param text string
+---@return codestyle.Edit
+local function replace(node, text)
+  local start_row, start_col, end_row, end_col = node:range()
+  return { start_row = start_row, start_col = start_col, end_row = end_row, end_col = end_col, text = text }
+end
+
 ---@type codestyle.Formatter
 return {
   build = function(ctx)
@@ -130,7 +156,27 @@ return {
     }
   end,
   right_margin = option('wrap.hard_wrap_at', 120),
-  rules = {
-    spacing = spacing.get_spacing,
+  rules = spacing.rules(),
+  before = {
+    function(ctx)
+      if not vim.tbl_get(ctx.values, 'conversion', 'semicolons') then
+        return {}
+      end
+      return vim.tbl_map(function(node)
+        return replace(node, '')
+      end, find(ctx.root, 'empty_statement'))
+    end,
+  },
+  after = {
+    function(ctx)
+      if not vim.tbl_get(ctx.values, 'conversion', 'double_quotes') then
+        return {}
+      end
+      local edits = {}
+      for _, quote in ipairs(find(ctx.root, "'")) do
+        table.insert(edits, replace(quote, '"'))
+      end
+      return edits
+    end,
   },
 }
