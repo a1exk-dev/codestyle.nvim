@@ -7,6 +7,7 @@
 ---| 'file' once per Code Style file
 ---| 'filetype' once per filetype
 ---| 'run' once per format run
+---| 'always' every time: the answer to one action of the user
 
 ---@class codestyle.Notices
 ---@field report fun(level: integer, scope: codestyle.NoticeScope, key: string, message: string)
@@ -23,11 +24,13 @@ function M.new(deps)
   ---@type codestyle.Notices
   return {
     report = function(level, scope, key, message)
-      seen[scope] = seen[scope] or {}
-      if seen[scope][key] then
-        return
+      if scope ~= 'always' then
+        seen[scope] = seen[scope] or {}
+        if seen[scope][key] then
+          return
+        end
+        seen[scope][key] = true
       end
-      seen[scope][key] = true
       deps.notify('codestyle: ' .. message, level)
     end,
     begin_run = function()

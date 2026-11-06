@@ -4,8 +4,8 @@ local M = {}
 
 ---@type table<string, fun(opts: vim.api.keyset.create_user_command.command_args)>
 local subcommands = {
-  format = function()
-    require('codestyle').format({ buf = 0 })
+  format = function(opts)
+    require('codestyle').format({ buf = 0, range = opts.range > 0 and { opts.line1, opts.line2 } or nil })
   end,
 }
 

@@ -25,7 +25,10 @@ local root = vim.fs.normalize(vim.fn.fnamemodify(debug.getinfo(1, 'S').source:su
 local Child = {}
 
 --- Starts a fresh child Neovim for one case.
----@param opts? { plugins?: string[] } fake plugins (folder names in `tests/fixtures/`), default `{ 'codestyle-lua.nvim' }`
+--- `opts.plugins`: fake plugins (folder names in `tests/fixtures/`), default `{ 'codestyle-lua.nvim' }`.
+--- `opts.cmd`: Ex commands that run before the init file and the plugins load, like a user's
+--- early config.
+---@param opts? { plugins?: string[], cmd?: string[] }
 function Child:setup(opts)
   opts = opts or {}
   local tmp = vim.fn.tempname()
@@ -41,7 +44,11 @@ function Child:setup(opts)
   vim.fn.mkdir(self.paths.config, 'p')
   vim.fn.mkdir(self.paths.repo .. '/.git', 'p')
 
-  self.restart({ '-u', root .. '/tests/minimal_init.lua' })
+  local args = { '-u', root .. '/tests/minimal_init.lua' }
+  for _, cmd in ipairs(opts.cmd or {}) do
+    vim.list_extend(args, { '--cmd', cmd })
+  end
+  self.restart(args)
   for _, plugin in ipairs(opts.plugins or { 'codestyle-lua.nvim' }) do
     self.lua('vim.opt.runtimepath:append(...)', { root .. '/tests/fixtures/' .. plugin })
   end

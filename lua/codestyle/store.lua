@@ -6,8 +6,12 @@
 -- defaults would rewrite the whole file (#50 New decisions).
 
 local code_style = require('codestyle.code_style')
+local general = require('codestyle.general')
+local json = require('codestyle.json')
 local migrations = require('codestyle.migrations')
 local repo = require('codestyle.repo')
+local schema = require('codestyle.schema')
+local tree = require('codestyle.tree')
 
 ---@alias codestyle.Scope 'global'|'project'
 
@@ -20,6 +24,7 @@ local repo = require('codestyle.repo')
 ---@class codestyle.Store
 ---@field load fun(scope: codestyle.Scope, root?: string): codestyle.CodeStyle?, codestyle.BrokenFile? `root` is the repo root of the `project` scope
 ---@field for_buffer fun(buf: integer): codestyle.CodeStyle?, codestyle.Scope the saved Code Style that formats the buffer; nil, with one ERROR, when its file is broken
+---@field save fun(scope: codestyle.Scope, root: string?, style: codestyle.CodeStyle): boolean, string? writes the file; false and why when it cannot
 
 local M = {}
 
@@ -107,6 +112,38 @@ local function path_of(scope, root)
   return vim.fs.joinpath(vim.fn.stdpath('config') --[[@as string]], 'codestyle.json')
 end
 
+--- The file content to write (ADR-0001, ADR-0003): a valid value that equals
+--- its Option's default is left out, and so is each object that this leaves
+--- empty. Invalid values, unknown keys, unknown languages and the reserved
+--- `arrangement` key stay as they are. A value of an Option that inherits is
+--- kept, because it was set.
+---@param raw codestyle.StoredFile
+---@param registry codestyle.Registry
+---@return table
+local function minimal(raw, registry)
+  local content = vim.deepcopy(raw)
+  local languages = content.languages or {}
+  for _, id in ipairs({ general.id, unpack(code_style.used_languages(registry)) }) do
+    local stored = languages[id]
+    if tree.is_object(stored) then
+      local spec = id == general.id and general or registry.get(id) --[[@as codestyle.Spec]]
+      for _, option in ipairs(spec.options) do
+        local path = tree.path(option.key)
+        local value = tree.get(stored, path)
+        if value ~= nil and not option.inherit and vim.deep_equal(schema.check(option, value), option.default) then
+          tree.remove(stored, path)
+        end
+      end
+      if next(stored) == nil then
+        languages[id] = nil
+      end
+    end
+  end
+  content.version = VERSION
+  content.languages = next(languages) ~= nil and languages or nil
+  return content
+end
+
 ---@param deps { notices: codestyle.Notices, registry: codestyle.Registry }
 ---@return codestyle.Store
 function M.new(deps)
@@ -141,6 +178,21 @@ function M.new(deps)
   ---@type codestyle.Store
   return {
     load = load,
+    save = function(scope, root, style)
+      local path = path_of(scope, root)
+      local _, broken = read(path)
+      if broken then
+        return false, ('%s:%d: %s; fix or delete the file first'):format(broken.path, broken.line, broken.message)
+      end
+      vim.fn.mkdir(vim.fs.dirname(path), 'p')
+      local file, message = io.open(path, 'w')
+      if not file then
+        return false, tostring(message)
+      end
+      file:write(json.encode(minimal(style.raw(), deps.registry)))
+      file:close()
+      return true
+    end,
     for_buffer = function(buf)
       local root = repo.root(buf)
       local scope = (root and vim.uv.fs_stat(path_of('project', root))) and 'project' or 'global'
