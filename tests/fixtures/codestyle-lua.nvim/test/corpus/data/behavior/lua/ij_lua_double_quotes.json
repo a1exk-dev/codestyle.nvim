@@ -1,0 +1,45 @@
+{
+ "key": "ij_lua_double_quotes",
+ "language": "lua",
+ "ui_tab": "Fixture",
+ "ui_group": null,
+ "ui_label": "ij_lua_double_quotes",
+ "scheme_xml_location": [
+  "tag:CCodeStyleSettings",
+  "USE_DOUBLE_QUOTES"
+ ],
+ "status": "verified-effect",
+ "inputs": {
+  "quotes.lua": "x='a'\ny='it\\'s'\n"
+ },
+ "base_outputs": {
+  "Default": {
+   "quotes.lua": "x='a'\ny='it\\'s'\n"
+  }
+ },
+ "results": [
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "true",
+   "ui": "true",
+   "internal": "true",
+   "is_default": false,
+   "changed_files": {
+    "quotes.lua": {
+     "output": "x=\"a\"\ny=\"it's\"\n",
+     "diff": ""
+    }
+   }
+  },
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "false",
+   "ui": "false",
+   "internal": "false",
+   "is_default": false,
+   "changed_files": {}
+  }
+ ]
+}

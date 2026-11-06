@@ -1,0 +1,39 @@
+{
+ "key": "ij_formatter_off_tag",
+ "language": "lua",
+ "ui_tab": "Fixture",
+ "ui_group": null,
+ "ui_label": "ij_formatter_off_tag",
+ "scheme_xml_location": [
+  "root",
+  "FORMATTER_OFF_TAG"
+ ],
+ "status": "verified-effect",
+ "inputs": {
+  "markers.lua": "-- @fmt:stop\nx=1\n-- @formatter:on\ny=2\n"
+ },
+ "base_outputs": {
+  "regex, spaces": {
+   "markers.lua": "-- @fmt:stop\nx = 1\n-- @formatter:on\ny = 2\n"
+  }
+ },
+ "results": [
+  {
+   "base": "regex, spaces",
+   "base_settings": {
+    "root:FORMATTER_TAGS_ACCEPT_REGEXP": "true",
+    "common:SPACE_AROUND_ASSIGNMENT_OPERATORS": "true"
+   },
+   "value": "@fmt:(off|stop)",
+   "ui": "@fmt:(off|stop)",
+   "internal": "@fmt:(off|stop)",
+   "is_default": false,
+   "changed_files": {
+    "markers.lua": {
+     "output": "-- @fmt:stop\nx=1\n-- @formatter:on\ny = 2\n",
+     "diff": ""
+    }
+   }
+  }
+ ]
+}

@@ -13,6 +13,7 @@ local text = require('codestyle.text')
 ---| 'auto' rearrange the languages whose Arrangement is enabled
 ---| 'force' rearrange every language, as `:Codestyle arrange`
 ---| 'off' never rearrange, as for the formatter's Behaviour Records
+---| 'only' rearrange every language and format nothing, as PhpStorm's Rearrange Code; for the Arrangement cases
 
 ---@class codestyle.ArrangementStepRequest
 ---@field registry codestyle.Registry
@@ -77,7 +78,7 @@ function M.run(request)
       return nil
     end
     local stored = request.code_style.arrangement(id) --[[@as codestyle.Arrangement]]
-    if request.mode ~= 'force' and not stored.enabled then
+    if request.mode == 'auto' and not stored.enabled then
       return nil
     end
     return stored, { spec = spec.arrangement, module = registry.load(id, 'arrangement') }

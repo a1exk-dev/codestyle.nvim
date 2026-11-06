@@ -1,0 +1,21 @@
+{
+ "_about": "Presets of the fixture.",
+ "presets": {
+  "fixture.Roomy": {
+   "class": "fixture.Roomy",
+   "name": "Roomy",
+   "language": "Lua",
+   "ij_changes": {},
+   "persisted_options": [],
+   "scheme_xml_diff": "<code_scheme name=\"Roomy\" version=\"173\">\n  <option name=\"RIGHT_MARGIN\" value=\"100\" />\n  <LuaCodeStyleSettings>\n    <option name=\"SPACE_BEFORE_SEMICOLON\" value=\"true\" />\n  </LuaCodeStyleSettings>\n  <codeStyleSettings language=\"Lua\">\n    <option name=\"SPACE_AROUND_ASSIGNMENT_OPERATORS\" value=\"true\" />\n    <indentOptions>\n      <option name=\"INDENT_SIZE\" value=\"2\" />\n    </indentOptions>\n  </codeStyleSettings>\n  <codeStyleSettings language=\"Alt\">\n    <option name=\"SPACE_AROUND_ASSIGNMENT_OPERATORS\" value=\"true\" />\n  </codeStyleSettings>\n</code_scheme>"
+  },
+  "fixture.Mixed": {
+   "class": "fixture.Mixed",
+   "name": "Mixed",
+   "language": "Lua",
+   "ij_changes": {},
+   "persisted_options": [],
+   "scheme_xml_diff": "<code_scheme name=\"Mixed\" version=\"173\">\n  <LuaCodeStyleSettings>\n    <option name=\"TODO_MARKER\" value=\"YYY\" />\n  </LuaCodeStyleSettings>\n</code_scheme>"
+  }
+ }
+}
