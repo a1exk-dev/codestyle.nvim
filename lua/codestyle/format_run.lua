@@ -175,6 +175,7 @@ function M.new(deps)
         end
         for _, match in ipairs(matches) do
           match.row, match.col = text.shift(match.row, match.col, edits)
+          match.end_row, match.end_col = text.shift(match.end_row, match.end_col, edits)
         end
         lines = text.apply(lines, edits)
       end

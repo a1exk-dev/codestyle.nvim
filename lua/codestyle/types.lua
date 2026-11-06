@@ -75,6 +75,13 @@
 ---@field namespace? boolean rules may have a `namespace` regex
 ---@field default codestyle.Arrangement used when none is stored, or the stored one is invalid
 ---@field phpstorm? table<string, string> PhpStorm's token ids → this spec's tokens, for the Scheme XML import
+--- The Menu's editor of the Arrangement Tab (ADR-0012): `rules` (the default) shows rule rows, `sort` the
+--- sort panel of the CSS family (off, by name, custom order) over the same Slot shape.
+---@field panel? 'rules'|'sort'
+---@field labels? table<string, string> the Menu's labels of the tokens, Keep-Together kinds and orders; an id without one shows as it is
+---@field exclusive? string[][] sets of tokens that one condition of a rule cannot hold together, such as `public` and `private`
+---@field sample? string[] the Preview sample of the Arrangement Tab, rearranged then formatted with `parsers.default`
+---@field custom_order? string[] the names that the sort panel's "Custom order" starts from, PhpStorm's default list
 
 --- The `arrangement` module of a Language Plugin (ADR-0011).
 ---@class codestyle.ArrangementModule
