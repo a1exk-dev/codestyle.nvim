@@ -21,6 +21,18 @@
 ---@field choices? codestyle.OptionChoice[] the choices of a `choice` Option
 ---@field item? 'integer'|'string' the type of each item of a `list`
 ---@field inherit? string a `general` key, such as `hard_wrap_at`, whose value the Option takes when it has none stored (ADR-0018)
+---@field requires? codestyle.Requirement the value of another Option of the language that this Option needs; the Menu dims it otherwise
+--- Why the plugin's output for this Option does not match all of its Behaviour
+--- Records (ADR-0013). The Menu marks a Flagged Option.
+---@field flagged? string
+
+--- A dependency of an Option on another Option of the same language: the
+--- Menu dims the Option and refuses its edits while it does not hold. It
+--- never changes formatting. Give `is` or `is_not`.
+---@class codestyle.Requirement
+---@field key string the dotted key of the other Option
+---@field is? any the Option is active while the other has this value
+---@field is_not? any the Option is active while the other has any other value
 
 --- One rename that a Language Plugin ships when it renames a key or a
 --- choice id (ADR-0007). The Core applies them in order on read.

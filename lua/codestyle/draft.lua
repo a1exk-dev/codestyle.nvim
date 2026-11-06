@@ -32,6 +32,8 @@ local tree = require('codestyle.tree')
 ---@field undo fun(): boolean false when there is nothing to undo
 ---@field redo fun(): boolean false when there is nothing to redo
 ---@field changed fun(id: string): integer the number of the language's values that differ from the default, the Arrangement counting as one
+---@field changed_keys fun(id: string): table<string, true> the keys of the language's Options whose stored value is valid and differs from the default; an inherit Option counts when it is set
+---@field modified fun(): boolean true when the Draft differs from the saved Code Style
 ---@field kept_languages fun(): codestyle.KeptLanguage[] sorted by id
 ---@field code_style fun(): codestyle.CodeStyle the Draft as a Code Style, for the Preview
 ---@field save fun(): boolean, string? writes the file through the Store; false and why when it cannot
@@ -141,6 +143,21 @@ function M.new(deps)
     end
   end
 
+  ---@param id string
+  ---@return table<string, true>
+  local function changed_keys(id)
+    local stored = (current().languages or {})[id]
+    local keys = {} ---@type table<string, true>
+    for _, option in ipairs(spec_of(id).options) do
+      local raw = tree.get(stored, tree.path(option.key))
+      local value = raw ~= nil and schema.check(option, raw)
+      if raw ~= nil and value ~= nil and (option.inherit or not vim.deep_equal(value, option.default)) then
+        keys[option.key] = true
+      end
+    end
+    return keys
+  end
+
   local function clear_history()
     steps = { current() }
     index = 1
@@ -203,20 +220,16 @@ function M.new(deps)
       changed_now()
       return true
     end,
+    changed_keys = changed_keys,
     changed = function(id)
-      local stored = (current().languages or {})[id]
-      local count = 0
-      for _, option in ipairs(spec_of(id).options) do
-        local raw = tree.get(stored, tree.path(option.key))
-        local value = raw ~= nil and schema.check(option, raw)
-        if raw ~= nil and value ~= nil and (option.inherit or not vim.deep_equal(value, option.default)) then
-          count = count + 1
-        end
-      end
-      if id ~= general.id and tree.get(stored, { ARRANGEMENT }) ~= nil then
+      local count = vim.tbl_count(changed_keys(id))
+      if id ~= general.id and tree.get((current().languages or {})[id], { ARRANGEMENT }) ~= nil then
         count = count + 1
       end
       return count
+    end,
+    modified = function()
+      return not vim.deep_equal(current(), steps[1])
     end,
     kept_languages = function()
       local used = { [general.id] = true }
