@@ -8,6 +8,7 @@
 -- Option is set or reset, unknown keys and languages, and the reserved
 -- `arrangement` key until the Arrangement is set or reset (ADR-0003, ADR-0012).
 
+local arrangement = require('codestyle.arrangement')
 local code_style = require('codestyle.code_style')
 local general = require('codestyle.general')
 local schema = require('codestyle.schema')
@@ -36,6 +37,7 @@ local tree = require('codestyle.tree')
 ---@field undo fun(): boolean false when there is nothing to undo
 ---@field redo fun(): boolean false when there is nothing to redo
 ---@field changed fun(id: string): integer the number of the language's values that differ from the default, the Arrangement counting as one
+---@field arrangement_changed fun(id: string): boolean true when the stored Arrangement is valid and differs from the default
 ---@field changed_keys fun(id: string): table<string, true> the keys of the language's Options whose stored value is valid and differs from the default; an inherit Option counts when it is set
 ---@field modified fun(): boolean true when the Draft differs from the saved Code Style
 ---@field kept_languages fun(): codestyle.KeptLanguage[] sorted by id
@@ -162,6 +164,18 @@ function M.new(deps)
     return keys
   end
 
+  ---@param id string
+  ---@return boolean
+  local function arrangement_changed(id)
+    local spec = id ~= general.id and spec_of(id) --[[@as codestyle.Spec]]
+    local stored = tree.get((current().languages or {})[id], { ARRANGEMENT })
+    if not spec or not spec.arrangement or stored == nil then
+      return false
+    end
+    local valid, problem = arrangement.validate(spec.arrangement, stored)
+    return not problem and not vim.deep_equal(valid, arrangement.validate(spec.arrangement, nil))
+  end
+
   local function clear_history()
     steps = { current() }
     index = 1
@@ -239,9 +253,10 @@ function M.new(deps)
       return true
     end,
     changed_keys = changed_keys,
+    arrangement_changed = arrangement_changed,
     changed = function(id)
       local count = vim.tbl_count(changed_keys(id))
-      if id ~= general.id and tree.get((current().languages or {})[id], { ARRANGEMENT }) ~= nil then
+      if arrangement_changed(id) then
         count = count + 1
       end
       return count

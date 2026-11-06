@@ -1,6 +1,8 @@
 -- The small floats of the Menu that edit a value with more than one item
 -- (ADR-0003, ADR-0004): an `order`, whose members move with `J`/`K`
 -- (ADR-0012), and a `list`, whose items are the lines of an editable buffer.
+-- An editable `order` is both, as the sort panel's custom order: `J`/`K` move,
+-- `o` adds and `dd` deletes.
 -- `<CR>` applies and `q`/`<Esc>` cancel. Each float is a scratch buffer named
 -- `codestyle://order` or `codestyle://list`.
 
@@ -11,6 +13,7 @@ local M = {}
 ---@field lines string[]
 ---@field apply fun(lines: string[]): boolean takes the float's lines; false keeps the float open
 ---@field on_close fun() runs after the float closes, applied or not
+---@field editable? boolean an `order` whose lines may be edited too; blank lines are left out
 
 --- Opens one float with the keys of its kind.
 ---@param kind 'order'|'list'
@@ -22,7 +25,7 @@ local function open(kind, opts, keys, footer)
   vim.bo[buf].bufhidden = 'wipe'
   vim.api.nvim_buf_set_name(buf, 'codestyle://' .. kind)
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, opts.lines)
-  vim.bo[buf].modifiable = kind == 'list'
+  vim.bo[buf].modifiable = kind == 'list' or opts.editable == true
   local win_keys = {} ---@type table<string, snacks.win.Keys|false>
   for lhs, fn in pairs(keys) do
     win_keys[lhs] = { lhs, fn, mode = 'n', nowait = true }
@@ -32,7 +35,7 @@ local function open(kind, opts, keys, footer)
     title = ' ' .. opts.title .. ' ',
     footer = ' ' .. footer .. ' ',
     border = 'rounded',
-    width = math.max(40, vim.fn.strdisplaywidth(opts.title) + 4),
+    width = math.max(40, vim.fn.strdisplaywidth(opts.title) + 4, vim.fn.strdisplaywidth(footer) + 4),
     height = math.max(3, math.min(#opts.lines + 1, vim.o.lines - 8)),
     zindex = 100,
     backdrop = false,
@@ -68,25 +71,36 @@ function M.order(opts)
       lines[row], lines[to] = lines[to], lines[row]
       vim.bo[win.buf].modifiable = true
       vim.api.nvim_buf_set_lines(win.buf, 0, -1, false, lines)
-      vim.bo[win.buf].modifiable = false
+      vim.bo[win.buf].modifiable = opts.editable == true
       vim.api.nvim_win_set_cursor(win.win, { to, 0 })
     end
   end
-  open('order', opts, {
-    J = move(1),
-    K = move(-1),
-    ['<CR>'] = function(win)
-      if opts.apply(lines_of(win)) then
+  open(
+    'order',
+    opts,
+    {
+      J = move(1),
+      K = move(-1),
+      ['<CR>'] = function(win)
+        local lines = lines_of(win)
+        if opts.editable then
+          lines = vim.tbl_filter(function(line)
+            return line ~= ''
+          end, vim.tbl_map(vim.trim, lines))
+        end
+        if opts.apply(lines) then
+          win:close()
+        end
+      end,
+      q = function(win)
         win:close()
-      end
-    end,
-    q = function(win)
-      win:close()
-    end,
-    ['<Esc>'] = function(win)
-      win:close()
-    end,
-  }, 'J/K move · <CR> apply · q cancel')
+      end,
+      ['<Esc>'] = function(win)
+        win:close()
+      end,
+    },
+    opts.editable and 'J/K move · o add · dd delete · <CR> apply · q cancel' or 'J/K move · <CR> apply · q cancel'
+  )
 end
 
 --- A `list` float: one item per line, edited as text; blank lines are left out.

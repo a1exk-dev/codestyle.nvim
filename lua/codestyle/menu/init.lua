@@ -3,7 +3,12 @@
 -- pane is a scratch buffer drawn whole from a view model (`menu.view`); the
 -- keys and clicks turn into Draft operations (`menu.edit`), and the Preview
 -- follows the Draft. Closing with unsaved changes asks Save / Discard / Cancel.
+-- A language with Arrangement data gets the Arrangement Tab (ADR-0012), whose
+-- rows and keys come from `menu.arrangement_rows` and `menu.arrangement_edit`.
 
+local arrangement = require('codestyle.arrangement')
+local arrangement_edit = require('codestyle.menu.arrangement_edit')
+local arrangement_rows = require('codestyle.menu.arrangement_rows')
 local code_style = require('codestyle.code_style')
 local draft_actions = require('codestyle.menu.draft_actions')
 local edit = require('codestyle.menu.edit')
@@ -145,7 +150,7 @@ function M.new(deps)
   local state
 
   ---@param id string
-  ---@return { name: string, options: codestyle.OptionSpec[], tabs?: codestyle.Tab[] }
+  ---@return { name: string, options: codestyle.OptionSpec[], tabs?: codestyle.Tab[], arrangement?: codestyle.ArrangementSpec }
   local function spec_of(id)
     if id == general.id then
       return general
@@ -160,7 +165,7 @@ function M.new(deps)
   end
 
   ---@param s codestyle.menu.State
-  ---@return codestyle.Tab[], integer
+  ---@return codestyle.menu.Tab[], integer
   local function current_tab(s)
     local tabs = view.tabs(spec_of(s.language))
     local index = math.min(s.tab[s.language] or 1, #tabs)
@@ -211,26 +216,78 @@ function M.new(deps)
     end
   end
 
+  --- Puts the Options cursor on the Arrangement row that stands for `wanted`.
+  ---@param wanted codestyle.menu.ArrangementItem
+  local function focus_row(wanted)
+    local win = win_of('options')
+    for row, item in pairs(state and state.options_view and state.options_view.items or {}) do
+      if win and item.arrangement and vim.deep_equal(item.arrangement, wanted) then
+        vim.api.nvim_win_set_cursor(win, { row, 0 })
+      end
+    end
+  end
+
   local function render_options()
     local s = assert(state)
+    -- The cursor stays on its Arrangement row when rows above it come or go.
+    local before = item_at_cursor()
     local spec = spec_of(s.language)
     local tabs, index = current_tab(s)
     local win = win_of('options')
-    s.options_view = view.tab_rows({
-      spec = spec,
-      tabs = tabs,
-      tab = index,
-      query = s.query,
-      values = s.draft.code_style().values(s.language),
-      changed = s.draft.changed_keys(s.language),
-      folded = s.folded[s.language] or {},
-      width = win and vim.api.nvim_win_get_width(win) or 80,
-    })
+    local width = win and vim.api.nvim_win_get_width(win) or 80
+    if tabs[index].arrangement and not s.query then
+      local target = { draft = s.draft, language = s.language, spec = assert(spec.arrangement) }
+      local current, problem = arrangement_edit.current(target)
+      s.options_view = arrangement_rows.rows({
+        spec = target.spec,
+        arrangement = current,
+        default = arrangement.validate(target.spec, nil),
+        problem = problem,
+        folded = s.folded[s.language] or {},
+        width = width,
+      })
+    else
+      -- The filter finds the fixed rows of the Arrangement Tab too.
+      local extra
+      if s.query and spec.arrangement then
+        local target = { draft = s.draft, language = s.language, spec = spec.arrangement }
+        extra = arrangement_rows.rows({
+          spec = target.spec,
+          arrangement = (arrangement_edit.current(target)),
+          default = arrangement.validate(target.spec, nil),
+          folded = {},
+          width = width,
+          query = s.query,
+        })
+        for _, item in pairs(extra.items) do
+          item.tab = #tabs
+        end
+      end
+      s.options_view = view.tab_rows({
+        spec = spec,
+        tabs = tabs,
+        tab = index,
+        query = s.query,
+        extra = extra,
+        values = s.draft.code_style().values(s.language),
+        changed = s.draft.changed_keys(s.language),
+        folded = s.folded[s.language] or {},
+        width = width,
+      })
+    end
     draw(s.bufs.options, s.options_view)
+    if before and before.arrangement then
+      focus_row(before.arrangement)
+    end
     if win then
       vim.wo[win].winbar = s.query
           and ('%%#Search# Filter: %s %%#WinBar# F clears'):format((s.query:gsub('%%', '%%%%')))
-        or view.tab_strip(tabs, index, CLICK)
+        or view.tab_strip(
+          tabs,
+          index,
+          CLICK,
+          s.language ~= general.id and spec.arrangement ~= nil and s.draft.arrangement_changed(s.language)
+        )
     end
     local scope = s.draft.scope == 'project' and 'Project Code Style' or 'Global Code Style'
     s.layout.root:set_title(
@@ -304,14 +361,36 @@ function M.new(deps)
   end
 
   local editor = edit.new({ notices = deps.notices, on_float_close = focus_options })
+  local arrangement_editor = arrangement_edit.new({ notices = deps.notices, on_float_close = focus_options })
 
-  --- Acts on the Option of an Options row.
+  --- The rule of the Arrangement row under the cursor, for the Preview.
+  local function highlight_rule()
+    local s = assert(state)
+    local item = item_at_cursor()
+    local found = item and item.arrangement and item.arrangement.kind == 'rule' and item.arrangement
+    s.preview.highlight(found and { slot = found.slot, rule = found.rule } or nil)
+  end
+
+  --- Acts on the Option of an Options row, or on a row of the Arrangement Tab.
   ---@param item? codestyle.menu.Item
-  ---@param action codestyle.menu.Action
+  ---@param action codestyle.menu.ArrangementAction
   local function act(item, action)
     local s = assert(state)
     if item and item.option then
-      editor.act({ draft = s.draft, language = s.language, spec = spec_of(s.language), option = item.option }, action)
+      if vim.list_contains({ 'toggle', 'edit', 'next', 'prev', 'reset' }, action) then
+        editor.act(
+          { draft = s.draft, language = s.language, spec = spec_of(s.language), option = item.option },
+          action --[[@as codestyle.menu.Action]]
+        )
+      end
+    elseif item and item.arrangement then
+      local spec = assert(spec_of(s.language).arrangement)
+      local target = { draft = s.draft, language = s.language, spec = spec }
+      local focus = arrangement_editor.act(target, item.arrangement, action)
+      if focus and state == s then
+        focus_row(focus)
+        highlight_rule()
+      end
     end
   end
 
@@ -375,7 +454,8 @@ function M.new(deps)
     if inside(item.arrow, col) then
       fold(item)
     elseif inside(item.control, col) then
-      act(item, 'edit')
+      local kind = item.arrangement and item.arrangement.kind
+      act(item, (kind == 'enabled' or kind == 'keep' or kind == 'sort') and 'toggle' or 'edit')
     end
   end
 
@@ -399,7 +479,7 @@ function M.new(deps)
 
   local menu ---@type codestyle.Menu
 
-  ---@param action codestyle.menu.Action
+  ---@param action codestyle.menu.ArrangementAction
   local function on_row(action)
     return function()
       act(item_at_cursor(), action)
@@ -549,6 +629,15 @@ function M.new(deps)
       pane = 'options',
     },
     { '<LeftRelease>', left_click, desc = 'edit the clicked value', pane = 'options' },
+    { 'X', on_row('reset_all'), desc = 'reset the whole Arrangement', pane = 'options' },
+    { 'o', on_row('add_slot'), desc = 'add a rule in a new Slot below / an alias', pane = 'options' },
+    { 'a', on_row('add_rule'), desc = 'add a rule to this Slot', pane = 'options' },
+    { 'J', on_row('down'), desc = 'move the rule down', pane = 'options' },
+    { 'K', on_row('up'), desc = 'move the rule up', pane = 'options' },
+    { 'gJ', on_row('slot_down'), desc = 'move the Slot down', pane = 'options' },
+    { 'gK', on_row('slot_up'), desc = 'move the Slot up', pane = 'options' },
+    { 'dd', on_row('delete'), desc = 'delete the rule / alias', pane = 'options' },
+    { 'r', on_row('rename'), desc = 'rename the alias', pane = 'options' },
     { '<CR>', focus_options, desc = 'go to the Options', pane = 'languages' },
   }
 
@@ -824,6 +913,9 @@ function M.new(deps)
       callback = function()
         if state == s and s.query then
           show_preview()
+        end
+        if state == s then
+          highlight_rule()
         end
       end,
     })

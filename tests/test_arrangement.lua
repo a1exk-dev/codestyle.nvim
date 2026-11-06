@@ -301,10 +301,11 @@ T['runs']['the run returns the Slot and rule of each entry, at its row in the re
   )
 
   -- Result: M:m (row 2), a blank line, M.x (row 4), a blank line, M.f (row 6), which no rule matched.
+  -- Each match also gives where its entry ends after formatting (`M.x = 1`).
   expect.equality(matches, {
-    { language = 'lua', row = 2, col = 0, slot = 1, rule = 1 },
-    { language = 'lua', row = 4, col = 0, slot = 1, rule = 2 },
-    { language = 'lua', row = 6, col = 0 },
+    { language = 'lua', row = 2, col = 0, end_row = 2, end_col = 18, slot = 1, rule = 1 },
+    { language = 'lua', row = 4, col = 0, end_row = 4, end_col = 7, slot = 1, rule = 2 },
+    { language = 'lua', row = 6, col = 0, end_row = 6, end_col = 18 },
   })
 end
 
