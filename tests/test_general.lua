@@ -137,6 +137,14 @@ T['markers']['the on-marker line is formatted by default'] = function()
   expect.equality(lines, { '-- @formatter:off', 'a=1', 'b = 2 -- @formatter:on' })
 end
 
+T['markers']['lines in a region keep their indent, and the on-marker line is indented'] = function()
+  global()
+
+  local lines = format_lua({ 'do', '-- @formatter:off', ' a=1', '-- @formatter:on', 'b=2', 'end' })
+
+  expect.equality(lines, { 'do', '    -- @formatter:off', ' a=1', '    -- @formatter:on', '    b = 2', 'end' })
+end
+
 T['markers']['with the spec flag the on-marker line keeps its column'] = function()
   local buf = child:open_buffer({
     filetype = 'markdown',
