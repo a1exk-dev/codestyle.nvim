@@ -246,14 +246,20 @@ T['a Preview run that raises keeps the last good output and shows the marker'] =
   settle()
   expect.equality(pane_lines('preview'), { 'x = 1' })
   expect.equality(winbar_text('preview'), '⚠ broken: formatter error')
-  local notices = child:notices()
-  expect.equality(#notices, 1)
-  expect.equality(notices[1].level, H.levels.ERROR)
-  expect.equality(notices[1].message:find('the fake broken plugin raises on purpose', 1, true) ~= nil, true)
+  -- The full error goes to :messages only (ADR-0016), once per new failure.
+  expect.equality(child:notices(), {})
+  local messages = vim.split(child.cmd_capture('messages'), '\n', { trimempty = true })
+  expect.equality(#messages, 1)
+  expect.equality(vim.startswith(messages[1], 'codestyle: the Preview of "broken" failed: '), true)
+  expect.equality(messages[1]:find('the fake broken plugin raises on purpose', 1, true) ~= nil, true)
 
   child.type_keys('l')
   settle()
   expect.equality(winbar_text('preview'), ' Preview')
+  -- A failure after a good run is a new one.
+  child.type_keys('l')
+  settle()
+  expect.equality(#vim.split(child.cmd_capture('messages'), '\n', { trimempty = true }), 2)
 end
 
 T['a broken Code Style file does not open the Menu'] = function()

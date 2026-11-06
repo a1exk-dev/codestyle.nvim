@@ -111,7 +111,6 @@ function M.get()
         preview = require('codestyle.preview').new({
           registry = core.registry,
           format_run = core.format_run,
-          notices = core.notices,
         }),
       }),
     }

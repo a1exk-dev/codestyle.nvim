@@ -3,11 +3,12 @@
 -- buffers. Keys never wait for it: a change of the Draft queues at most one
 -- run with `vim.schedule`, so a held key skips values and the Preview always
 -- ends on the latest Draft. A run that fails (the Format Run catches the
--- plugin's error) keeps the last good output and sets the failure marker; the
--- next good run clears it. It keeps the parse of each text that did not
--- change since the run before. On the Arrangement Tab (ADR-0012) each Arrangement
--- Entry of the sample shows its Slot as dim virtual text, `–` for none, and
--- the entries of the rule under the Menu's cursor are highlighted.
+-- plugin's error) keeps the last good output and sets the failure marker, and
+-- the full error goes to `:messages`; the next good run clears the marker. It
+-- keeps the parse of each text that did not change since the run before. On
+-- the Arrangement Tab (ADR-0012) each Arrangement Entry of the sample shows
+-- its Slot as dim virtual text, `–` for none, and the entries of the rule
+-- under the Menu's cursor are highlighted.
 
 ---@class codestyle.PreviewView
 ---@field buf integer the scratch buffer that shows the sample; its filetype is never a real one
@@ -57,7 +58,7 @@ end
 --- The text of a Tab that has no sample.
 local NO_SAMPLE = { '', '  No Preview for this Tab.' }
 
----@param deps { registry: codestyle.Registry, format_run: codestyle.FormatRun, notices: codestyle.Notices }
+---@param deps { registry: codestyle.Registry, format_run: codestyle.FormatRun }
 ---@return codestyle.Preview
 function M.new(deps)
   --- The first parser of `parsers.default` that is installed.
@@ -86,6 +87,7 @@ function M.new(deps)
       local shown_matches = {} ---@type codestyle.ArrangementMatch[] the matches of the shown output
       local rule ---@type { slot: integer, rule: integer }?
       local cache = parse_cache.new()
+      local failed ---@type string? the error of the failure that the Preview shows
 
       --- The Slot of each entry, and the entries of the rule under the cursor.
       local function draw_slots()
@@ -187,17 +189,19 @@ function M.new(deps)
           shown_matches = last_matches[tab]
           draw_slots()
           view.status(nil)
+          failed = nil
         else
           set_lines(last_good[tab] or tab.sample, marked[tab])
           shown_matches = last_matches[tab] or {}
           draw_slots()
           view.status(('⚠ %s: formatter error'):format(language))
-          deps.notices.report(
-            vim.log.levels.ERROR,
-            'always',
-            'preview',
-            ('the Preview of "%s" failed: %s'):format(language, (assert(failure)).message)
-          )
+          -- The full error goes to :messages only, once per new failure: the
+          -- marker already tells the user (ADR-0016).
+          local message = ('codestyle: the Preview of "%s" failed: %s'):format(language, (assert(failure)).message)
+          if message ~= failed then
+            failed = message
+            vim.api.nvim_echo({ { message, 'ErrorMsg' } }, true, {})
+          end
         end
       end
 
