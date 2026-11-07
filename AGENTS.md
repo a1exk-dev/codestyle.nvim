@@ -20,7 +20,7 @@
   3. Run `git fetch --prune`.
   4. CAUTION: Delete a local branch only with `git branch -d`, not `git branch -D`. `git branch -D` deletes commits that no other branch contains.
   5. Delete the local branch of that pull request with `git branch -d <branch>`.
-- Checks: The required check is the `typos` job of `.github/workflows/spelling.yml`. Before you add a check, ask the operator, who picks checks from the CI of popular Neovim plugins.
+- Checks: Branch protection on `main` and `develop` requires five checks: the tests on Neovim 0.11.7 and stable, StyLua, and lua-language-server in `.github/workflows/ci.yml`, and `typos` in `.github/workflows/spelling.yml` (ADR-0017). Before you add or remove a required check, ask the operator, who picks checks from the CI of popular Neovim plugins.
 - Back-merges: After the operator merges a pull request into `main`, `release.yml` opens the back-merge pull request from `main` into `develop`. If the `back-merge` job stops because Git cannot merge `main` into `develop`, do not change that pull request. If you change that pull request, you push commits to `main`. Run `git fetch`. Then do these steps:
   1. Make the branch `bugfix/back-merge-v<semver>` from `origin/develop`. The title of the back-merge pull request gives `<semver>`.
   2. On that branch, run `git merge origin/main` and correct the files that Git cannot merge.
