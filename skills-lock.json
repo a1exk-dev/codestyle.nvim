@@ -13,6 +13,13 @@
       "skillPath": "skills/engineering/codebase-design/SKILL.md",
       "computedHash": "aa11a96c08451f4ff86052d5da94004a8c97bb4ea41b2ac8a4300c189f66c89c"
     },
+    "common-changelog": {
+      "source": "a1exk-dev/agent-context",
+      "ref": "develop",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/common-changelog/SKILL.md",
+      "computedHash": "da3131af017c496bfe8a88e665c9c6da72c834bfc93fee25569e1f7441435da1"
+    },
     "domain-modeling": {
       "source": "mattpocock/skills",
       "sourceType": "github",
@@ -66,6 +73,13 @@
       "sourceType": "github",
       "skillPath": "skills/engineering/research/SKILL.md",
       "computedHash": "5d85b64ecceed6b3f6d5996dc8af07180be8d1ff11ef3d26eda2acff078fbd39"
+    },
+    "semver": {
+      "source": "a1exk-dev/agent-context",
+      "ref": "develop",
+      "sourceType": "github",
+      "skillPath": "skills/engineering/semver/SKILL.md",
+      "computedHash": "f00607ad84749edd565f4c8a358a2e1d72115a07e879db180fa4fc26cfbe14d8"
     },
     "tdd": {
       "source": "mattpocock/skills",
