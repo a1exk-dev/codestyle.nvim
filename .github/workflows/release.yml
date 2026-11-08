@@ -1,0 +1,127 @@
+name: Release
+
+# `Tag and back-merge: CI` in docs/agents/semver-policy.md: when a
+# `release/X.Y.Z` or `hotfix/<name>` pull request is merged into `main`, this
+# workflow tags the merge commit, publishes the GitHub release, and opens the
+# back-merge pull requests. The semver Skill only checks that they exist.
+
+permissions: {}
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag and GitHub release
+    if: >-
+      github.event.pull_request.merged &&
+      (startsWith(github.event.pull_request.head.ref, 'release/') ||
+      startsWith(github.event.pull_request.head.ref, 'hotfix/'))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Find the version
+        id: version
+        run: |
+          version="$(sh .github/scripts/release.sh version "$HEAD_REF")"
+          # A released version never moves: a tag on another commit stops
+          # the run instead of being replaced.
+          if tagged="$(git rev-parse --verify --quiet "refs/tags/v$version^{commit}")" && [ "$tagged" != "$SHA" ]; then
+            echo "::error::tag v$version already exists on $tagged, not on the merge commit $SHA"
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the GitHub release
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if gh release view "v$VERSION" > /dev/null 2>&1; then
+            echo "The release v$VERSION exists already."
+            exit 0
+          fi
+          sh .github/scripts/release.sh notes "$VERSION" > "$RUNNER_TEMP/notes.md"
+          if [ -s "$RUNNER_TEMP/notes.md" ]; then
+            notes="--notes-file=$RUNNER_TEMP/notes.md"
+          else
+            echo "::warning::CHANGELOG.md has no entry for $VERSION; the release notes are generated from the pull requests"
+            notes="--generate-notes"
+          fi
+          # `gh release create` makes the tag on --target when it is missing.
+          gh release create "v$VERSION" --target "$SHA" --title "v$VERSION" "$notes"
+
+  back-merge:
+    name: Open the back-merge pull requests
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+      SHA: ${{ github.event.pull_request.merge_commit_sha }}
+      VERSION: ${{ needs.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Open a pull request from main into each target
+        run: |
+          # A hotfix also goes into the open release branch, so that the next
+          # release keeps the correction. A release branch is open while its
+          # tag does not exist.
+          targets="develop"
+          case $HEAD_REF in
+            hotfix/*)
+              for branch in $(git for-each-ref --format='%(refname:lstrip=3)' 'refs/remotes/origin/release/*'); do
+                git rev-parse --verify --quiet "refs/tags/v${branch#release/}" > /dev/null || targets="$targets $branch"
+              done
+              ;;
+          esac
+
+          for target in $targets; do
+            if git merge-base --is-ancestor "$SHA" "origin/$target"; then
+              echo "$target contains v$VERSION already."
+              continue
+            fi
+            if [ -n "$(gh pr list --head main --base "$target" --state open --json number --jq '.[].number')" ]; then
+              echo "A pull request from main into $target is open already."
+              continue
+            fi
+            url="$(gh pr create --head main --base "$target" \
+              --title "chore: merge main into $target" \
+              --body "Back-merge of v$VERSION, released from #${{ github.event.pull_request.number }}. If Git cannot merge it, finish the release with the semver Skill, which resolves it on \`bugfix/back-merge-v$VERSION\`.")"
+            echo "Opened $url"
+            number="${url##*/}"
+            # `Development auto-merge: on`. A conflict or a repository without
+            # auto-merge leaves the pull request open for the semver Skill.
+            if ! gh pr merge "$number" --auto --merge --subject "chore: merge main into $target (#$number)"; then
+              echo "::warning::auto-merge is not on for $url; finish the release with the semver Skill"
+            fi
+          done
