@@ -13,6 +13,7 @@
 
 ## Workflow
 
+- Changelog: In each pull request into `develop` with a change that users can see, add its item under `## Unreleased` with the common-changelog Skill. On each `release/*` or `hotfix/*` branch, release the changelog as its version before you open the pull request into `main` (ADR-0019).
 - Merge messages: Start the message of each merge commit into `develop` with the line `<type>[(<scope>)]: merge <branch> into develop (#<n>)`. When you write this message, obey each Setting of the Commit policy, `docs/agents/commit-policy.md`, that controls the message.
 - Checks: Branch protection on `main` and `develop` requires five checks: the tests on Neovim 0.11.7 and stable, StyLua, and lua-language-server in `.github/workflows/ci.yml`, and `typos` in `.github/workflows/spelling.yml` (ADR-0017). Before you add or remove a required check, ask the operator, who picks checks from the CI of popular Neovim plugins.
 
