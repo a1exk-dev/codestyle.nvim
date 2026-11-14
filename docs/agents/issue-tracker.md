@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
+All agent work (wayfinder maps, specs, and `ready-for-agent` or `ready-for-human` issues) lives as GitHub issues in the home tracker, `a1exk-dev/codestyle-home`. This repo's own tracker is only for contributors' bug reports and release discussions. Use the `gh` CLI for all operations.
 
 ## Conventions
 
@@ -12,7 +12,7 @@ Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all o
 - **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
 - **Close**: `gh issue close <number> --comment "..."`
 
-Infer the repo from `git remote -v`; `gh` does this automatically when run inside a clone.
+For agent work, pass `-R a1exk-dev/codestyle-home` to each `gh issue` command, and use `repos/a1exk-dev/codestyle-home` as `<owner>/<repo>` in `gh api` paths. Without `-R`, `gh` uses this repo's tracker. In issue text, refer to a Core issue or pull request as `a1exk-dev/codestyle.nvim#<n>`, because a bare `#<n>` in the home tracker points to a home issue. Agent issues that were closed before the move stay in this repo, and their URLs still work.
 
 ## Pull requests as a triage surface
 
