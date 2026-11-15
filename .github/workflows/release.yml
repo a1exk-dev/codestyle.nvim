@@ -1,8 +1,9 @@
 name: Release
 
-# `Tag and back-merge: CI` in docs/agents/semver-policy.md: when a
-# `release/X.Y.Z` or `hotfix/<name>` pull request is merged into `main`, this
-# workflow tags the merge commit, publishes the GitHub release, and opens the
+# `Tag and back-merge: CI` in the Semver policy of codestyle-home
+# (https://github.com/a1exk-dev/codestyle-home/blob/main/docs/agents/semver-policy.md):
+# when a `release/X.Y.Z` or `hotfix/<name>` pull request is merged into `main`,
+# this workflow tags the merge commit, publishes the GitHub release, and opens the
 # back-merge pull requests. The semver Skill only checks that they exist.
 
 permissions: {}

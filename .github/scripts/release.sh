@@ -6,8 +6,10 @@
 #   release.sh notes <version>         print the CHANGELOG.md entry of that
 #                                      version; print nothing if it has none
 #
-# The rules follow docs/agents/semver-policy.md: tag prefix `v`, versions
-# `X.Y.Z` only, and a hotfix gets the next patch of the last release.
+# The rules follow the Semver policy of codestyle-home
+# (https://github.com/a1exk-dev/codestyle-home/blob/main/docs/agents/semver-policy.md):
+# tag prefix `v`, versions `X.Y.Z` only, and a hotfix gets the next patch of
+# the last release.
 set -eu
 
 die() {
