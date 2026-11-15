@@ -13,7 +13,7 @@ A Scheme XML import writes into the Draft of the Code Style that is being edited
 
 ## Consequences
 
-- **Sources:** only `.idea/codeStyles/Project.xml` when the repo has it, otherwise a path that the user gives. The Core never reads `codeStyleConfig.xml` or IDE scheme directories.
+- **Sources:** only `.idea/codeStyles/Project.xml` at the Project root (ADR-0001) when it exists, otherwise a path that the user gives. The Core never reads `codeStyleConfig.xml` or IDE scheme directories.
 - **Where to start it:** `i` in the Menu imports into the Code Style that is being edited, Global or Project. `:Codestyle import [path]` opens the Menu and starts the import there. This adds to the import places of ADR-0004.
 - **The XML reader:** the Core's reader handles elements, attributes in either quote style, self-closing tags, text, comments, `<?xml?>`, CDATA, the five named entities and numeric references. It rejects DOCTYPE. It unwraps `<component name="ProjectCodeStyleConfiguration">` to reach `<code_scheme>`. On malformed XML, the import stops with one error that gives the line, and the Draft is untouched.
 - **What a `scheme` module declares:** its `language=` attribute (`"PHP"`) and its own custom element (`"PHPCodeStyleSettings"`).

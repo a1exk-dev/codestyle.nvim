@@ -12,7 +12,7 @@ The Core's own tests run on mini.test. They format small fake Language Plugins t
 
 - Each part has its own tests, written against what it offers the rest of the Core: the engine (Blocks, Gaps, Indent, Wrap, Alignment, the host/HTML merge, Embed Points), Arrangement, Code Style storage and migrations, the Scheme XML reader and import, the Draft with undo/redo, Presets, plugin discovery and the `api` check, the format entry points (`<Plug>` map, `formatexpr`, `:Codestyle format`, the conform formatter), and the Menu.
 - No coverage is measured. No speed is checked; the bench script stays hand-run (ADR-0016).
-- Storage tests point the `XDG_*` folders and the repo root at a temporary directory.
+- Storage tests point the `XDG_*` folders and the Project root at a temporary directory.
 
 ## Fake languages
 
