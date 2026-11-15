@@ -30,22 +30,23 @@ local text = require('codestyle.text')
 
 ---@class codestyle.ArrangementStepResult
 ---@field lines string[]
----@field range? codestyle.Range the request's range, grown to the lines of the entries that moved in it
+---@field range? codestyle.Range the request's range, grown to the lines of the entries that moved in it; an entry that did not move adds no lines (ADR-0014)
 ---@field matches codestyle.ArrangementMatch[] in text order
 
 local M = {}
 
 ---@param range? codestyle.Range
----@param span? codestyle.Range
+---@param spans codestyle.Range[] the lines of the entries that moved
 ---@return codestyle.Range?
-local function grow(range, span)
-  if not range or not span then
+local function grow(range, spans)
+  if not range then
     return range
   end
-  return {
-    start_row = math.min(range.start_row, span.start_row),
-    end_row = math.max(range.end_row, span.end_row),
-  }
+  local start_row, end_row = range.start_row, range.end_row
+  for _, span in ipairs(spans) do
+    start_row, end_row = math.min(start_row, span.start_row), math.max(end_row, span.end_row)
+  end
+  return { start_row = start_row, end_row = end_row }
 end
 
 ---@param block codestyle.Block
@@ -90,14 +91,14 @@ function M.run(request)
   ---@param stored codestyle.Arrangement
   ---@param plugin codestyle.ArrangementPlugin
   local function arrange(ctx, stored, plugin)
-    local edits, found, span = arrangement.arrange(ctx, stored, plugin, lines)
+    local edits, found, spans = arrangement.arrange(ctx, stored, plugin, lines)
     for _, match in ipairs(matches) do
       match.row, match.col = text.shift(match.row, match.col, edits)
       match.end_row, match.end_col = text.shift(match.end_row, match.end_col, edits)
     end
     vim.list_extend(matches, found)
     lines = text.apply(lines, edits)
-    range = grow(range, span)
+    range = grow(range, spans)
   end
 
   ---@param language codestyle.Language

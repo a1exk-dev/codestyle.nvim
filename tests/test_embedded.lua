@@ -214,4 +214,64 @@ T['template merge']['the host chooses the indent Options of the template layers'
   expect.equality(format({ tmpl = { indent = { size = 2 } } }, 'tmpl', lines), { '*a', '  b*', '' })
 end
 
+T['template merge']['moved Blocks'] = MiniTest.new_set()
+
+-- With no rule of the new parent's plugin, a child of a split host Block takes
+-- the split Block's indent (IntelliJ's `TemplateFormatUtil.fillGap`), and any
+-- other moved Block keeps its own (`TemplateXmlTagBlock.getIndent`).
+
+T['template merge']['moved Blocks']["a child of a split Block takes the split Block's indent"] = function()
+  -- The fenced block in the list item crosses the emphasis, so it is split.
+  -- Its opening delimiter stays in the list item, which has no indent rule,
+  -- and takes the fenced block's indent.
+  local lines = { '- i', '', '  ```', '  *a', '  ```', '  b*', '', '  ```', '  ```', '' }
+
+  expect.equality(
+    format(template, 'tmpl', lines),
+    { '- i', '', '   ```', '*a', '   ```', '   b*', '', '   ```', '   ```', '' }
+  )
+end
+
+T['template merge']['moved Blocks']['a split inside a split hands down the inherited indent'] = function()
+  -- The nested list, its item and its fenced block cross the emphasis. The
+  -- nested item has no indent of its own, but inherits the nested list's when
+  -- the list is split, and hands it to its marker.
+  local lines = { '- i', '', '  - j', '', '    ```', '    *a', '    ```', '  b*', '', '  ```', '  ```', '' }
+
+  expect.equality(
+    format(template, 'tmpl', lines),
+    { '- i', '', '   - j', '', '   ```', '*a', '   ```', '   b*', '', '   ```', '   ```', '' }
+  )
+end
+
+T['template merge']['moved Blocks']['a markup Block under a host Block keeps its own indent'] = function()
+  -- The list sits in the emphasis and takes its words; `d` keeps the indent
+  -- that the emphasis gave it, since the list item has no indent rule.
+  local lines = { '*a', '```', '```', '- c', '  d', '```', '```', 'b*', '' }
+
+  expect.equality(
+    format(template, 'tmpl', lines),
+    { '*a', '   ```', '   ```', '   - c', '      d', '   ```', '   ```', '   b*', '' }
+  )
+end
+
+T['template merge']['moved Blocks']['a host Block under a markup Block keeps its own indent'] = function()
+  -- The list item ends with markup, so its fenced block joins the markup
+  -- root, which has no indent rule, and keeps the list item's indent.
+  local lines = { '- i', '  ```', '  ```', '  tail', '' }
+
+  expect.equality(format(template, 'tmpl', lines), { '- i', '   ```', '   ```', 'tail', '' })
+end
+
+T['template merge']['moved Blocks']['a rule that gives an indent wins over each default'] = function()
+  -- The closing delimiter of the split fenced block joins the emphasis,
+  -- whose rule indents it, although the fenced block has no indent.
+  expect.equality(format(template, 'tmpl', { '```', '*a', '```', 'b*', '' }), { '```', '*a', '   ```', '   b*', '' })
+  -- The markup word in the fenced block: the fenced block's rule indents it.
+  expect.equality(format(template, 'tmpl', { '```', 'p', '```', '' }), { '```', '   p', '```', '' })
+  -- The fenced block in the emphasis: the emphasis rule indents it.
+  expect.equality(format(template, 'tmpl', { '*a', '```', '```', 'b*', '' }), { '*a', '   ```', '   ```', '   b*', '' })
+  expect.equality(child:notices(), {})
+end
+
 return T

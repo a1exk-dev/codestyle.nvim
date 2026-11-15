@@ -410,12 +410,28 @@ function M.layout(ctx, languages)
       end)
     end
     local last = #lines
-    local merged = merge.merge(root, markup_root, { 0, 0, last - 1, #lines[last] })
+    local merged, split_from = merge.merge(root, markup_root, { 0, 0, last - 1, #lines[last] })
+    --- The indent that a split Block hands to its children: its own, or the
+    --- one it inherited when it was itself the child of a split Block.
+    ---@param block codestyle.Block
+    ---@return codestyle.Indent?
+    local function inherited(block)
+      local split = split_from[block]
+      if split then
+        return inherited(split)
+      end
+      return block.indent
+    end
     -- A Block under a new parent gets its indent from the parent's plugin.
+    -- With none, as IntelliJ: a child of a split Block takes the split Block's
+    -- indent (`TemplateFormatUtil.fillGap`), and any other Block keeps its own
+    -- (`TemplateXmlTagBlock.getIndent`), whatever its language.
     walk(merged, function(child, parent)
       if parent and parent_before[child] ~= parent then
         local indent = info_of[parent].dialect.child_indent(parent, child)
-        if not indent and info_of[parent].dialect == info_of[child].dialect then
+        if not indent and split_from[child] then
+          indent = inherited(split_from[child])
+        elseif not indent then
           indent = child.indent
         end
         child.indent = indent

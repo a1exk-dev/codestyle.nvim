@@ -190,8 +190,10 @@
 --- `require('codestyle.spacing_builder')` writes such rules.
 ---@field spacing? fun(parent: codestyle.Block, left: codestyle.Block, right: codestyle.Block, values: codestyle.Values): codestyle.Spacing?
 --- The Indent of a child that the template merge puts under `parent`, also a
---- Block of another language (ADR-0005). The first rule that gives one wins;
---- with none, a child of the same language keeps its own Indent, another gets none.
+--- Block of another language (ADR-0005). The first rule that gives one wins.
+--- With none, a child of a split host Block takes the Indent of the Block that
+--- was split, which that Block inherited when it was split too; any other
+--- child keeps its own Indent, whatever its language.
 ---@field child_indent? fun(parent: codestyle.Block, child: codestyle.Block, values: codestyle.Values): codestyle.Indent?
 
 --- A step that changes text, such as forced braces or letter case. The Core
