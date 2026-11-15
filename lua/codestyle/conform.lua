@@ -32,6 +32,13 @@ function M.new(deps)
           url = 'https://github.com/a1exk-dev/codestyle.nvim',
           description = 'Formats with the PhpStorm-style Code Style of codestyle.nvim.',
         },
+        -- The formatter keeps to `ctx.range` itself. conform reads a
+        -- `range_args` as that promise and then applies every change, so the
+        -- `\r`s that a run removes outside the range go too (ADR-0014, ADR-0018).
+        -- A Lua formatter's `range_args` is never called.
+        range_args = function()
+          return {}
+        end,
         condition = function(_, ctx)
           return format_api.can_format(ctx.buf)
         end,

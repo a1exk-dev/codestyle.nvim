@@ -221,6 +221,16 @@ T['line endings']['mixed endings convert to CRLF when most lines use it, and fil
   expect.equality(fileformat, 'dos')
 end
 
+T['line endings']['a selection converts the whole file, and fileformat becomes dos'] = function()
+  global()
+  local buf = child:open_buffer({ filetype = 'lua', lines = { 'a=1\r', 'b=2\r', 'c=3\r', 'd = 4', 'e=5' } })
+
+  child:format({ buf = buf, range = { 5, 5 } })
+
+  expect.equality(child:lines(buf), { 'a=1', 'b=2', 'c=3', 'd = 4', 'e = 5' })
+  expect.equality(child.api.nvim_get_option_value('fileformat', { buf = buf }), 'dos')
+end
+
 T['line endings']['a tie converts to LF'] = function()
   local lines, fileformat = format_endings({ 'a=1\r', 'b=2' })
 

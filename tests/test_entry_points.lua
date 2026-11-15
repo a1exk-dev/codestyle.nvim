@@ -290,6 +290,18 @@ T['conform']['keeps the range'] = function()
   expect.equality(child:lines(buf), { 'x=1', 'y = 2', 'z=3' })
 end
 
+T['conform']['a range in a file where CRLF wins leaves no line with a final CR'] = function()
+  lazy_load_conform({ formatters_by_ft = { lua = { 'codestyle' } } })
+  -- The untouched LF line keeps the lines outside the range in a diff hunk
+  -- of their own, which conform's range filter would drop.
+  local buf = child:open_buffer({ filetype = 'lua', lines = { 'x=1\r', 'y=2\r', 'z=3\r', 'v = 4', 'w=5' } })
+
+  child.lua('require("conform").format({ bufnr = ..., range = { start = { 5, 0 }, ["end"] = { 5, 3 } } })', { buf })
+
+  expect.equality(child:lines(buf), { 'x=1', 'y=2', 'z=3', 'v = 4', 'w = 5' })
+  expect.equality(child.api.nvim_get_option_value('fileformat', { buf = buf }), 'dos')
+end
+
 T['conform']['is unavailable for an unclaimed buffer and for a missing parser'] = function()
   child:teardown()
   child:setup({ plugins = { 'codestyle-lua.nvim', 'codestyle-parsers.nvim' } })
