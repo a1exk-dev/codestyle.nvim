@@ -23,17 +23,17 @@ local reader = require('codestyle.scheme_xml.reader')
 ---@field totals codestyle.ImportTotals
 
 ---@class codestyle.SchemeXml
---- The file to import: `path` when it is given, else the repo's `.idea/codeStyles/Project.xml` when it
+--- The file to import: `path` when it is given, else `.idea/codeStyles/Project.xml` at the Project root when it
 --- exists. `codeStyleConfig.xml` and IDE scheme folders are never read.
 ---@field source fun(root?: string, path?: string): string?, string? nil and why when there is none
---- Imports into the Draft as one step. `root` is the repo root to look for `Project.xml` in, by default the
+--- Imports into the Draft as one step. `root` is the Project root to look for `Project.xml` in, by default the
 --- Draft's, used only when no `path` is given. Nil and the message (also given as an ERROR) when nothing
 --- was imported.
 ---@field import fun(draft: codestyle.Draft, opts?: { root?: string, path?: string }): codestyle.ImportReport?, string?
 
 local M = {}
 
---- Where PhpStorm keeps a project's own Scheme XML, from the repo root.
+--- Where PhpStorm keeps a project's own Scheme XML, from the Project root.
 M.project_xml = '.idea/codeStyles/Project.xml'
 
 --- The absolute path of a path that the user typed.
@@ -58,10 +58,10 @@ function M.new(deps)
     if project and vim.uv.fs_stat(project) then
       return project
     end
-    return nil,
-      ('no Scheme XML to import: %s does not exist and no path was given'):format(
-        project or ('no repo root has ' .. M.project_xml)
-      )
+    if not project then
+      return nil, 'no Scheme XML to import: the file is outside the working directory and no path was given'
+    end
+    return nil, ('no Scheme XML to import: %s does not exist and no path was given'):format(project)
   end
 
   ---@param draft codestyle.Draft

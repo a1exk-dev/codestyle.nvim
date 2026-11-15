@@ -11,12 +11,12 @@ local general = require('codestyle.general')
 local input = require('codestyle.menu.input')
 local panes = require('codestyle.menu.panes')
 local render = require('codestyle.menu.render')
-local repo = require('codestyle.repo')
+local project_root = require('codestyle.project_root')
 local saving = require('codestyle.menu.saving')
 
 ---@class codestyle.MenuOpts
 ---@field scope? codestyle.Scope the Code Style to edit; default the one of the current buffer
----@field import? string|true imports a Scheme XML once the Menu is open: this path, or `true` to ask for one: Yes / No to the repo's `Project.xml` when it exists, else a path prompt (ADR-0010)
+---@field import? string|true imports a Scheme XML once the Menu is open: this path, or `true` to ask for one: Yes / No to the `Project.xml` of the Project root when it exists, else a path prompt (ADR-0010)
 
 ---@class codestyle.Menu
 ---@field open fun(opts?: codestyle.MenuOpts) opens the Menu, or focuses it when it is open
@@ -40,7 +40,7 @@ local saving = require('codestyle.menu.saving')
 ---@field tab table<string, integer> the current Tab of each language
 ---@field folded table<string, table<string, true>> the folded Groups of each language
 ---@field query? string the filter of the Options pane
----@field root? string the repo root of the buffer that the Menu was opened from
+---@field root? string the Project root, nil when the buffer that the Menu was opened from is outside it
 
 ---@class codestyle.menu.State: codestyle.menu.Place
 ---@field draft codestyle.Draft
@@ -283,7 +283,7 @@ function M.new(deps)
       return
     end
     local buf = vim.api.nvim_get_current_buf()
-    local root = repo.root(buf)
+    local root = project_root.of(buf)
     local scope = opts.scope or ((root and vim.uv.fs_stat(deps.store.path('project', root))) and 'project' or 'global')
     local draft, broken = deps.draft(scope, root)
     if not draft then

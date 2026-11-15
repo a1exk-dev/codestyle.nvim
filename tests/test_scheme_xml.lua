@@ -458,7 +458,7 @@ end
 
 T['sources'] = MiniTest.new_set()
 
-T['sources']['with no path, Project.xml is used when the repo has it, and the component is unwrapped'] = function()
+T['sources']['with no path, Project.xml is used when the Project root has it, and the component is unwrapped'] = function()
   open_draft()
   write_xml(
     table.concat({
@@ -466,10 +466,10 @@ T['sources']['with no path, Project.xml is used when the repo has it, and the co
       scheme({ '  <option name="RIGHT_MARGIN" value="90" />' }),
       '</component>',
     }, '\n'),
-    child.paths.repo .. '/.idea/codeStyles/Project.xml'
+    child.paths.project .. '/.idea/codeStyles/Project.xml'
   )
-  local report = assert(import({ root = child.paths.repo }))
-  expect.equality(report.source, child.paths.repo .. '/.idea/codeStyles/Project.xml')
+  local report = assert(import({ root = child.paths.project }))
+  expect.equality(report.source, child.paths.project .. '/.idea/codeStyles/Project.xml')
   expect.equality(stored(), { general = { hard_wrap_at = 90 } })
 end
 
@@ -477,10 +477,10 @@ T['sources']['a given path wins over Project.xml, with no notice but the import'
   open_draft()
   write_xml(
     scheme({ '  <option name="RIGHT_MARGIN" value="90" />' }),
-    child.paths.repo .. '/.idea/codeStyles/Project.xml'
+    child.paths.project .. '/.idea/codeStyles/Project.xml'
   )
   local other = write_xml(scheme({ '  <option name="RIGHT_MARGIN" value="70" />' }))
-  local report = assert(import({ root = child.paths.repo, path = other }))
+  local report = assert(import({ root = child.paths.project, path = other }))
   expect.equality(report.source, other)
   expect.equality(stored(), { general = { hard_wrap_at = 70 } })
   local notices = child:notices()
@@ -492,18 +492,18 @@ T['sources']['else the given path; codeStyleConfig.xml is never read'] = functio
   open_draft()
   write_xml(
     '<component name="ProjectCodeStyleConfiguration"><state><option name="USE_PER_PROJECT_SETTINGS" value="true" /></state></component>',
-    child.paths.repo .. '/.idea/codeStyles/codeStyleConfig.xml'
+    child.paths.project .. '/.idea/codeStyles/codeStyleConfig.xml'
   )
-  local report, message = import({ root = child.paths.repo })
+  local report, message = import({ root = child.paths.project })
   expect.equality(report, nil)
   expect.equality(
     message,
     ('no Scheme XML to import: %s/.idea/codeStyles/Project.xml does not exist and no path was given'):format(
-      child.paths.repo
+      child.paths.project
     )
   )
   local path = write_xml(scheme({ '  <option name="RIGHT_MARGIN" value="70" />' }))
-  report = assert(import({ root = child.paths.repo, path = path }))
+  report = assert(import({ root = child.paths.project, path = path }))
   expect.equality(report.source, path)
   expect.equality(stored(), { general = { hard_wrap_at = 70 } })
 end

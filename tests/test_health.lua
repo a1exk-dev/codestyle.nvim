@@ -116,8 +116,8 @@ end
 T['lists editorconfig trim when Keep indents on empty lines is on'] = function()
   local indents = { version = 1, languages = { lua = { indent = { keep_on_empty_lines = true } } } }
   child:write_global(indents)
-  child:write_file(child.paths.repo .. '/.editorconfig', 'root = true\n[*]\ntrim_trailing_whitespace = true\n')
-  child:open_buffer({ filetype = 'lua', lines = { 'x=1' }, name = child.paths.repo .. '/a.lua' })
+  child:write_file(child.paths.project .. '/.editorconfig', 'root = true\n[*]\ntrim_trailing_whitespace = true\n')
+  child:open_buffer({ filetype = 'lua', lines = { 'x=1' }, name = child.paths.project .. '/a.lua' })
 
   has(
     'a.lua (lua): editorconfig trim_trailing_whitespace removes the indents that '
@@ -127,8 +127,8 @@ T['lists editorconfig trim when Keep indents on empty lines is on'] = function()
 end
 
 T['editorconfig trim is fine when Keep indents on empty lines is off'] = function()
-  child:write_file(child.paths.repo .. '/.editorconfig', 'root = true\n[*]\ntrim_trailing_whitespace = true\n')
-  child:open_buffer({ filetype = 'lua', lines = { 'x=1' }, name = child.paths.repo .. '/a.lua' })
+  child:write_file(child.paths.project .. '/.editorconfig', 'root = true\n[*]\ntrim_trailing_whitespace = true\n')
+  child:open_buffer({ filetype = 'lua', lines = { 'x=1' }, name = child.paths.project .. '/a.lua' })
 
   has_not('editorconfig', health())
 end

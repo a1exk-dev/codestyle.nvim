@@ -24,7 +24,7 @@ local text = require('codestyle.text')
 ---@field code_style codestyle.CodeStyle
 ---@field range? codestyle.Range the whole lines to format, nil for the whole text
 ---@field path? string the absolute path of the file, nil when it has none (the Preview)
----@field root? string the folder that Do not format matches `path` from: the repo root or the working directory
+---@field root? string the folder that Do not format matches `path` from, the Project root; a `path` outside it, or with no root, matches only the globs with no `/`
 ---@field arrangement? codestyle.ArrangementMode default `auto`
 ---@field buf? integer the buffer whose LSP clients Arrangement may ask; nil for the Preview
 ---@field timings? boolean measure each step, for the bench script (ADR-0016)
@@ -73,8 +73,9 @@ end
 ---@param globs string[]
 ---@return codestyle.Notice?
 local function do_not_format_notice(request, globs)
-  local path = request.root and vim.fs.relpath(request.root, request.path) or request.path --[[@as string]]
-  local glob = do_not_format.match(globs, path)
+  local relative = request.root and vim.fs.relpath(request.root, request.path)
+  local path = relative or request.path --[[@as string]]
+  local glob = do_not_format.match(globs, path, relative == nil)
   return glob
     and {
       level = vim.log.levels.INFO,

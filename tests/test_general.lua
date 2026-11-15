@@ -158,9 +158,10 @@ end
 
 T['do not format'] = MiniTest.new_set()
 
-T['do not format']['a glob matched from the repo root skips the whole run with one notice per buffer'] = function()
+T['do not format']['a glob matched from the Project root skips the whole run with one notice per buffer'] = function()
   global({ do_not_format = { 'vendor/**' } })
-  local skipped = child:open_buffer({ filetype = 'lua', lines = { 'a=1' }, name = child.paths.repo .. '/vendor/x.lua' })
+  local skipped =
+    child:open_buffer({ filetype = 'lua', lines = { 'a=1' }, name = child.paths.project .. '/vendor/x.lua' })
 
   child:format({ buf = skipped })
   child:format({ buf = skipped })
@@ -172,27 +173,35 @@ T['do not format']['a glob matched from the repo root skips the whole run with o
       level = H.levels.INFO,
     },
   })
-  local formatted = format_lua({ 'a=1' }, { name = child.paths.repo .. '/src/vendor/x.lua' })
+  local formatted = format_lua({ 'a=1' }, { name = child.paths.project .. '/src/vendor/x.lua' })
   expect.equality(formatted, { 'a = 1' })
 end
 
 T['do not format']['a glob with no slash matches the file name in any folder'] = function()
   global({ do_not_format = { '*.min.lua' } })
 
-  local lines = format_lua({ 'a=1' }, { name = child.paths.repo .. '/a/b/c.min.lua' })
+  local lines = format_lua({ 'a=1' }, { name = child.paths.project .. '/a/b/c.min.lua' })
 
   expect.equality(lines, { 'a=1' })
   expect.equality(#child:notices(), 1)
 end
 
-T['do not format']['outside a repo, globs match from the working directory'] = function()
-  global({ do_not_format = { 'lib/*.lua' } })
+T['do not format']['outside the working directory, only a glob with no slash matches'] = function()
+  global({ do_not_format = { 'lib/*.lua', '*.min.lua' } })
   local outside = child.paths.root .. '/outside'
-  vim.fn.mkdir(outside, 'p')
-  child.fn.chdir(outside)
 
-  expect.equality(format_lua({ 'a=1' }, { name = outside .. '/lib/x.lua' }), { 'a=1' })
-  expect.equality(format_lua({ 'a=1' }, { name = outside .. '/src/lib/x.lua' }), { 'a = 1' })
+  expect.equality(format_lua({ 'a=1' }, { name = outside .. '/lib/x.lua' }), { 'a = 1' })
+  expect.equality(format_lua({ 'a=1' }, { name = outside .. '/lib/x.min.lua' }), { 'a=1' })
+end
+
+T['do not format']['a folder glob matches from the working directory after :cd'] = function()
+  global({ do_not_format = { 'lib/*.lua' } })
+  local other = child.paths.root .. '/other'
+  vim.fn.mkdir(other .. '/sub/.git', 'p')
+  child.fn.chdir(other)
+
+  expect.equality(format_lua({ 'a=1' }, { name = other .. '/lib/x.lua' }), { 'a=1' })
+  expect.equality(format_lua({ 'a=1' }, { name = other .. '/sub/lib/x.lua' }), { 'a = 1' })
 end
 
 T['line endings'] = MiniTest.new_set()

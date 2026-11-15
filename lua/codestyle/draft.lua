@@ -24,7 +24,7 @@ local tree = require('codestyle.tree')
 
 ---@class codestyle.Draft
 ---@field scope codestyle.Scope
----@field root? string the repo root of the `project` scope
+---@field root? string the Project root of the `project` scope
 ---@field set fun(id: string, key: string, value: any): boolean, string? false and the problem when the value is invalid; the Draft is then unchanged
 ---@field reset fun(id: string, key: string) back to the default: the stored value is removed
 ---@field set_arrangement fun(id: string, value: any) stores the language's Arrangement
