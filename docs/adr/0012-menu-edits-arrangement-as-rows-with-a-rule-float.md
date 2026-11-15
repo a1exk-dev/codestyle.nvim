@@ -38,5 +38,5 @@ A spec can choose the `sort` panel (CSS, SCSS). PhpStorm has no rule matcher for
 
 - The Menu calls `snacks.picker` directly for multi-select, because `vim.ui.select` picks one item. Single choices still go through `vim.ui.select` (ADR-0004).
 - `J`/`K` move items in every list of the Menu, including the float of the Core's `order` Option type, which the Menu prototype bound to `<C-j>`/`<C-k>`.
-- The spec's `arrangement` data (ADR-0011) also names its panel (`rules` or `sort`), the labels of its tokens, and which tokens are mutually exclusive. It needs an Arrangement Preview sample.
+- The spec's `arrangement` data (ADR-0011) also names its panel (`panel`: `rules`, the default, or `sort`), the labels of its tokens (`labels`), and which tokens are mutually exclusive (`exclusive`). It needs an Arrangement Preview sample (`sample`). A `sort` spec gives the list that "Custom order" starts from, PhpStorm's default list, as `custom_order` (a1exk-dev/codestyle-home#19).
 - The engine returns the matched Slot and rule of each entry next to its edits, for the Preview only.
