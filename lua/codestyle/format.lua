@@ -4,7 +4,7 @@
 ---@class codestyle.FormatOpts
 ---@field buf? integer the buffer, 0 or nil for the current one
 ---@field range? integer[] `{ start_line, end_line }`: the whole lines to format, 1-based and inclusive; nil for the whole buffer
----@field arrangement? codestyle.ArrangementMode `force` rearranges also when the language's Arrangement is off; default `auto`
+---@field arrangement? codestyle.ArrangementMode `auto` (default) rearranges when the language's Arrangement is on; `force` rearranges also when it is off; `off` never rearranges; `only` rearranges and formats nothing, as PhpStorm's Rearrange Code
 
 ---@class codestyle.FormatApi
 ---@field format fun(opts?: codestyle.FormatOpts)
