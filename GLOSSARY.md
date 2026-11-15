@@ -13,8 +13,12 @@ The user's own Code Style, used for every buffer that has no Project Code Style.
 _Avoid_: Default scheme, IDE scheme
 
 **Project Code Style**:
-The Code Style committed at the root of one repository and shared by everyone who works in it. It replaces the Global Code Style completely.
+The Code Style in `.codestyle.json` at the Project root, shared by everyone who works in that project. It replaces the Global Code Style completely for each buffer under the Project root.
 _Avoid_: Project scheme, local config
+
+**Project root**:
+Neovim's working directory (`:pwd`) of the current window. The project is the files under it, as a folder opened in PhpStorm is.
+_Avoid_: Repo root, repo top
 
 **Option**:
 One item of a Code Style that the user sets, with one typed value, such as how method parameters wrap. One Option can stand for several PhpStorm fields, for example one choice of upper or lower case for the two PhpStorm case flags.
