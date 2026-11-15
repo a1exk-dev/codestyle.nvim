@@ -8,9 +8,12 @@ The Menu is a modal dialog, like PhpStorm's Settings dialog: three floats over a
 - **snacks.nvim only when it is installed.** Rejected, because it needs two layout code paths.
 - **A tabpage with splits** (no layout code), or **one page buffer** (lazy.nvim style). Both were tried in the prototype and not chosen.
 - **Neovim 0.10** (the lowest version that runs the Menu pattern) or **0.12** (current stable, and nvim-treesitter's `main` branch). With 0.10, the engine would need a second code path for the old Tree-sitter match API. 0.12 would exclude distribution users who are still on 0.11.
+- **A `menu` subcommand**, alone or next to the bare `:Codestyle`, or a bare `:Codestyle` that formats. Rejected by the operator: the bare command opens the plugin's UI, as `:Lazy` and `:Mason` do, and formatting has its own subcommand and key (ADR-0014).
+- **A default key for the Menu**, like PhpStorm's Ctrl+Alt+S for Settings. Rejected by the operator: LazyVim already uses most `<leader>c` keys, and the Core maps a default key only when it is free, so the key would work in one setup and not in another.
 
 ## Consequences
 
 - Every user installs snacks.nvim. Like the parsers, it is a Neovim plugin, so the rule "nothing outside Neovim, Neovim plugins and Lua" holds.
 - The Menu still renders each pane as a scratch buffer drawn from a view model. Option labels are buffer text, so `/` finds them. `vim.ui.select` and `vim.ui.input` route to the user's own picker. A multi-select (the Arrangement token sets) uses `snacks.picker`, and the Arrangement Tab has its own rows and keys (ADR-0012).
 - Users with 0.11 get parsers from nvim-treesitter's locked `master` branch. The engine uses only Tree-sitter APIs that 0.11 has.
+- **Opening the Menu:** `:Codestyle` with no argument opens the Menu, as PhpStorm opens Settings from its menu ("Does :Codestyle with no argument open the Menu?", codestyle-home#37). The subcommands `format`, `arrange` and `import [path]` belong to ADR-0014, ADR-0011 and ADR-0010. The Core also gives `<Plug>(codestyle-menu)` in Normal mode for users to map, and no default key.
