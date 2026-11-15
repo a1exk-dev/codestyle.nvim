@@ -13,7 +13,7 @@ local text = require('codestyle.text')
 ---| 'auto' rearrange the languages whose Arrangement is enabled
 ---| 'force' rearrange every language, as `:Codestyle arrange`
 ---| 'off' never rearrange, as for the formatter's Behaviour Records
----| 'only' rearrange every language and format nothing, as PhpStorm's Rearrange Code; for the Arrangement cases
+---| 'only' rearrange every language and format nothing, as PhpStorm's Rearrange Code
 
 ---@class codestyle.ArrangementStepRequest
 ---@field registry codestyle.Registry
