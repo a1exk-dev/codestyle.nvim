@@ -9,11 +9,16 @@ A Scheme XML import writes into the Draft of the Code Style that is being edited
 - **Store the raw fields of languages with no installed plugin** in the file, and convert them when the plugin is installed. Rejected, because unvalidated values would reach the file (ADR-0006), and PhpStorm field names would become part of our file format.
 - **The user's Tree-sitter `xml` parser.** It is a full XML 1.0 grammar, but the import would then depend on a parser that only the XML Language Plugin needs, and its error recovery would accept a broken file without a word.
 - **Plugins that read the raw XML tree.** Rejected, because every plugin would repeat the lookup and conversion, and the golden tests would have no common mapping.
+- **`Project.xml` wins over a path that the user gives,** with a warning that names the ignored path. Rejected by the operator: the user could not import another file into a repo that has `Project.xml`, and PhpStorm reads the file that the user selects.
 - **Follow `codeStyleConfig.xml` to an IDE scheme** in the PhpStorm config directory. Rejected by the operator: we have our own store, so the import reads only what the user gives it.
 
 ## Consequences
 
-- **Sources:** only `.idea/codeStyles/Project.xml` at the Project root (ADR-0001) when it exists, otherwise a path that the user gives. The Core never reads `codeStyleConfig.xml` or IDE scheme directories.
+- **Sources:** an import reads only the file that the user selects, as PhpStorm's Import Scheme does (decided by the operator in "Keep the warning when Project.xml beats a given import path?", codestyle-home#20). The Core can suggest `.idea/codeStyles/Project.xml` at the Project root (ADR-0001), but it never imports that file unasked. The Core never reads `codeStyleConfig.xml` or IDE scheme directories.
+  - A path that the user gives is the file that the Core imports, also when the repo has `Project.xml`.
+  - With no path, when `Project.xml` exists, the Core asks "Import <path of Project.xml>?". Yes imports it. No opens an empty path prompt.
+  - With no path, when there is no `Project.xml`, the Core opens an empty path prompt.
+  - "Import Project.xml" in the scope choice of a repo with no Project Code Style is the user's selection, so it imports at once.
 - **Where to start it:** `i` in the Menu imports into the Code Style that is being edited, Global or Project. `:Codestyle import [path]` opens the Menu and starts the import there. This adds to the import places of ADR-0004.
 - **The XML reader:** the Core's reader handles elements, attributes in either quote style, self-closing tags, text, comments, `<?xml?>`, CDATA, the five named entities and numeric references. It rejects DOCTYPE. It unwraps `<component name="ProjectCodeStyleConfiguration">` to reach `<code_scheme>`. On malformed XML, the import stops with one error that gives the line, and the Draft is untouched.
 - **What a `scheme` module declares:** its `language=` attribute (`"PHP"`) and its own custom element (`"PHPCodeStyleSettings"`).
