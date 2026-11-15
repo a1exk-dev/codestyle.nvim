@@ -9,6 +9,7 @@
 --   join that level.
 -- - A Block that holds Blocks of the other tree takes them in as children.
 -- - A host Block that crosses a markup Block is split into its children.
+--   The merge records the split Block of each child, for its default indent.
 -- - The markup root spans the whole file, so the host root joins only when
 --   its leaves span the whole level.
 
@@ -80,8 +81,10 @@ end
 ---@param host_root codestyle.Block
 ---@param markup_root codestyle.Block
 ---@param file_range integer[]
----@return codestyle.Block
+---@return codestyle.Block merged
+---@return table<codestyle.Block, codestyle.Block> split_from the Block that was split, for each child that the split lifts
 function M.merge(host_root, markup_root, file_range)
+  local split_from = {} ---@type table<codestyle.Block, codestyle.Block>
   local own = {} ---@type table<codestyle.Block, codestyle.Block[]> the children that the host plugin built
   local inner = {} ---@type table<codestyle.Block, codestyle.Block[]> markup Blocks that a host Block takes in
   local markup_blocks = {} ---@type table<codestyle.Block, true>
@@ -143,6 +146,7 @@ function M.merge(host_root, markup_root, file_range)
         -- Split: its children take its place.
         table.remove(host, index)
         for offset, child in ipairs(own[candidate]) do
+          split_from[child] = candidate
           table.insert(host, index + offset - 1, child)
         end
       else
@@ -226,7 +230,7 @@ function M.merge(host_root, markup_root, file_range)
 
   markup_root.range = file_range
   visit_markup(markup_root)
-  return markup_root
+  return markup_root, split_from
 end
 
 return M
