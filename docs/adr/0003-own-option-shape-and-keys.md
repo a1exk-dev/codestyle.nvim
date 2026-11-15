@@ -17,4 +17,4 @@ Every Option has one of six Core types: `boolean`, `integer` (with `min` and `ma
 
 - Keys are permanent. Renaming a key needs a migration that the Language Plugin ships (see "What is the Language Plugin contract?", #12).
 - When a Language Plugin adds an `order` member, a stored order that lacks it gets the member where the default order puts it. A stored member that the plugin no longer knows is kept in the file and ignored.
-- An invalid stored value (wrong type, out of range, unknown choice) gives one warning per file. Formatting uses that Option's default, and the raw value stays in the file until the user sets that Option in the Menu.
+- An invalid stored value (wrong type, out of range, unknown choice) gives one warning per file. Formatting uses that Option's default, and the raw value stays in the file until the user sets that Option in the Menu. This covers a value inside a file that the Core can read. A file that the Core cannot read at all is broken, and ADR-0001 refuses it as a whole.
