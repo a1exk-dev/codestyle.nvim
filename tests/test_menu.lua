@@ -111,11 +111,11 @@ T['moving in the language list switches the language and the title shows scope a
   expect.equality(pane_lines('preview'), { 'x=1', "name='codestyle'" })
 end
 
-T['the title shows the Project Code Style of the repo'] = function()
-  child:write_file(child.paths.repo .. '/.codestyle.json', { version = 1 })
-  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.repo .. '/a.lua' })
+T['the title shows the Project Code Style of the Project root'] = function()
+  child:write_file(child.paths.project .. '/.codestyle.json', { version = 1 })
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.project .. '/a.lua' })
   open_menu()
-  expect.equality(menu_title(), ' Lua · Project Code Style · ~/repo/.codestyle.json ')
+  expect.equality(menu_title(), ' Lua · Project Code Style · ~/project/.codestyle.json ')
   expect.equality(pane_lines('languages')[1], 'Project Code Style')
 end
 

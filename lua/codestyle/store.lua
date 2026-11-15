@@ -10,7 +10,7 @@ local code_style = require('codestyle.code_style')
 local general = require('codestyle.general')
 local json = require('codestyle.json')
 local migrations = require('codestyle.migrations')
-local repo = require('codestyle.repo')
+local project_root = require('codestyle.project_root')
 local schema = require('codestyle.schema')
 local tree = require('codestyle.tree')
 
@@ -24,7 +24,7 @@ local tree = require('codestyle.tree')
 
 ---@class codestyle.Store
 ---@field path fun(scope: codestyle.Scope, root?: string): string the file of the scope
----@field load fun(scope: codestyle.Scope, root?: string): codestyle.CodeStyle?, codestyle.BrokenFile? `root` is the repo root of the `project` scope
+---@field load fun(scope: codestyle.Scope, root?: string): codestyle.CodeStyle?, codestyle.BrokenFile? `root` is the Project root of the `project` scope
 ---@field for_buffer fun(buf: integer): codestyle.CodeStyle?, codestyle.Scope the saved Code Style that formats the buffer; nil, with one ERROR, when its file is broken
 ---@field save fun(scope: codestyle.Scope, root: string?, style: codestyle.CodeStyle): boolean, string? writes the file; false and why when it cannot
 
@@ -109,7 +109,7 @@ end
 ---@return string
 local function path_of(scope, root)
   if scope == 'project' then
-    return vim.fs.joinpath(assert(root, 'the project scope needs a repo root'), repo.project_file)
+    return vim.fs.joinpath(assert(root, 'the project scope needs a Project root'), project_root.project_file)
   end
   return vim.fs.joinpath(vim.fn.stdpath('config') --[[@as string]], 'codestyle.json')
 end
@@ -204,7 +204,7 @@ function M.new(deps)
       return true
     end,
     for_buffer = function(buf)
-      local root = repo.root(buf)
+      local root = project_root.of(buf)
       local scope = (root and vim.uv.fs_stat(path_of('project', root))) and 'project' or 'global'
       local style, broken = load(scope, root)
       local path = path_of(scope, root)

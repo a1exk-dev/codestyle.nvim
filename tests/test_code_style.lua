@@ -27,8 +27,8 @@ T['Project file'] = MiniTest.new_set()
 
 T['Project file']['replaces the Global file completely'] = function()
   child:write_global(spaces_around_assignment)
-  child:write_file(child.paths.repo .. '/.codestyle.json', { version = 1, languages = { lua = {} } })
-  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.repo .. '/src/a.lua', lines = { 'x = 1' } })
+  child:write_file(child.paths.project .. '/.codestyle.json', { version = 1, languages = { lua = {} } })
+  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.project .. '/src/a.lua', lines = { 'x = 1' } })
 
   child:format({ buf = buf })
 
@@ -37,11 +37,75 @@ T['Project file']['replaces the Global file completely'] = function()
   expect.equality(child:lines(buf), { 'x=1' })
 end
 
-T['Project file']['is found at the nearest folder with .codestyle.json, above a nearer .git'] = function()
-  child:write_file(child.paths.repo .. '/.codestyle.json', spaces_around_assignment)
-  vim.fn.mkdir(child.paths.repo .. '/vendor/inner/.git', 'p')
-  local path = child.paths.repo .. '/vendor/inner/a.lua'
-  local buf = child:open_buffer({ filetype = 'lua', name = path, lines = { 'x=1' } })
+T['Project file']['is the .codestyle.json of the working directory, with no .git'] = function()
+  child:write_file(child.paths.project .. '/.codestyle.json', spaces_around_assignment)
+  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.project .. '/src/a.lua', lines = { 'x=1' } })
+
+  child:format({ buf = buf })
+
+  expect.equality(child:lines(buf), { 'x = 1' })
+end
+
+T['Project file']['ignores a .codestyle.json in a subfolder'] = function()
+  child:write_file(child.paths.project .. '/.codestyle.json', spaces_around_assignment)
+  child:write_file(child.paths.project .. '/pkg/.codestyle.json', { version = 1 })
+  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.project .. '/pkg/a.lua', lines = { 'x=1' } })
+
+  child:format({ buf = buf })
+
+  expect.equality(child:lines(buf), { 'x = 1' })
+end
+
+T['Project file']['a subfolder .codestyle.json does not replace the Global file'] = function()
+  child:write_global(spaces_around_assignment)
+  child:write_file(child.paths.project .. '/pkg/.codestyle.json', { version = 1 })
+  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.project .. '/pkg/a.lua', lines = { 'x=1' } })
+
+  child:format({ buf = buf })
+
+  expect.equality(child:lines(buf), { 'x = 1' })
+end
+
+T['Project file']['ignores a .codestyle.json above the working directory'] = function()
+  child:write_global(spaces_around_assignment)
+  child:write_file(child.paths.root .. '/.codestyle.json', { version = 1 })
+  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.project .. '/a.lua', lines = { 'x=1' } })
+
+  child:format({ buf = buf })
+
+  expect.equality(child:lines(buf), { 'x = 1' })
+end
+
+T['Project file']['a file outside the working directory uses the Global file'] = function()
+  child:write_global(spaces_around_assignment)
+  local other = child.paths.root .. '/other'
+  child:write_file(other .. '/.codestyle.json', { version = 1 })
+  vim.fn.mkdir(other .. '/.git', 'p')
+  local buf = child:open_buffer({ filetype = 'lua', name = other .. '/a.lua', lines = { 'x=1' } })
+
+  child:format({ buf = buf })
+
+  expect.equality(child:lines(buf), { 'x = 1' })
+end
+
+T['Project file'][':tcd changes the Code Style of the next format in that tab'] = function()
+  child:write_global(spaces_around_assignment)
+  local other = child.paths.root .. '/other'
+  child:write_file(other .. '/.codestyle.json', { version = 1 })
+  local buf = child:open_buffer({ filetype = 'lua', name = other .. '/a.lua', lines = { 'x=1' } })
+
+  child:format({ buf = buf })
+  expect.equality(child:lines(buf), { 'x = 1' })
+
+  child.cmd('tcd ' .. vim.fn.fnameescape(other))
+  child.api.nvim_buf_set_lines(buf, 0, -1, true, { 'x = 1' })
+  child:format({ buf = buf })
+  expect.equality(child:lines(buf), { 'x=1' })
+end
+
+T['Project file']['an unnamed buffer is under the working directory'] = function()
+  child:write_file(child.paths.project .. '/.codestyle.json', spaces_around_assignment)
+  local buf = child:open_buffer({ filetype = 'lua', lines = { 'x=1' } })
 
   child:format({ buf = buf })
 
@@ -51,9 +115,9 @@ end
 T['broken file'] = MiniTest.new_set()
 
 T['broken file']['not valid JSON gives one ERROR with file and line, and the buffer stays unchanged'] = function()
-  local path = child.paths.repo .. '/.codestyle.json'
+  local path = child.paths.project .. '/.codestyle.json'
   child:write_file(path, '{\n  "version": 1,\n  "languages": {\n    "lua": {,}\n  }\n}\n')
-  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.repo .. '/a.lua', lines = { 'x = 1' } })
+  local buf = child:open_buffer({ filetype = 'lua', name = child.paths.project .. '/a.lua', lines = { 'x = 1' } })
 
   child:format({ buf = buf })
 

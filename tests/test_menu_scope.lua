@@ -38,9 +38,9 @@ local function row(pane, text)
   end
 end
 
---- Opens a lua buffer in the repo and the Menu on it.
-local function open_in_repo()
-  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.repo .. '/init.lua' })
+--- Opens a lua buffer under the Project root and the Menu on it.
+local function open_in_project()
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.project .. '/init.lua' })
   M.open_menu(child)
 end
 
@@ -67,7 +67,7 @@ local function scheme_xml(size)
 end
 
 local function write_project_xml(size)
-  child:write_file(child.paths.repo .. '/.idea/codeStyles/Project.xml', scheme_xml(size))
+  child:write_file(child.paths.project .. '/.idea/codeStyles/Project.xml', scheme_xml(size))
 end
 
 T['p'] = MiniTest.new_set()
@@ -77,7 +77,7 @@ T['p']['lists the plugin Presets, then the user ones marked (user); applying one
     { name = 'Team', language = 'lua', values = { lua = { indent = { size = 3 } } } },
     { name = 'Other', language = 'c', values = {} },
   } })]])
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'Team (user)' })
   keys('p')
   local call = M.ui_calls(child)[1]
@@ -92,7 +92,7 @@ T['p']['lists the plugin Presets, then the user ones marked (user); applying one
 end
 
 T['p']['one notice lists what a Preset skipped'] = function()
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'Mixed' })
   keys('p')
   local notices = child:notices()
@@ -103,7 +103,7 @@ T['p']['one notice lists what a Preset skipped'] = function()
 end
 
 T['p']['a language with no Presets says so'] = function()
-  open_in_repo()
+  open_in_project()
   M.cursor_on(child, 'languages', 'General')
   keys('<C-l>')
   keys('p')
@@ -113,15 +113,15 @@ end
 
 T['i'] = MiniTest.new_set()
 
-T['i']['asks to import the repo Project.xml; Yes imports it into the edited scope as one undo step'] = function()
+T['i']['asks to import the Project.xml of the Project root; Yes imports it into the edited scope as one undo step'] = function()
   write_project_xml(2)
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'Yes' })
   keys('i')
   expect.equality(M.ui_calls(child), {
     {
       kind = 'select',
-      prompt = 'Import ' .. child.paths.repo .. '/.idea/codeStyles/Project.xml?',
+      prompt = 'Import ' .. child.paths.project .. '/.idea/codeStyles/Project.xml?',
       items = { 'Yes', 'No' },
     },
   })
@@ -129,7 +129,7 @@ T['i']['asks to import the repo Project.xml; Yes imports it into the edited scop
   local notices = child:notices()
   expect.equality(#notices, 1)
   expect.equality(notices[1].level, H.levels.INFO)
-  expect.equality(vim.startswith(notices[1].message, 'codestyle: imported ' .. child.paths.repo), true)
+  expect.equality(vim.startswith(notices[1].message, 'codestyle: imported ' .. child.paths.project), true)
   keys('u')
   expect.equality(row('languages', 'Lua'), 'Lua')
   keys({ '<C-r>', '<C-s>' })
@@ -140,7 +140,7 @@ T['i']['No to Project.xml asks for a path, and imports that file'] = function()
   write_project_xml(2)
   local path = child.paths.root .. '/scheme.xml'
   child:write_file(path, scheme_xml(3))
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'No', path })
   keys('i')
   local calls = M.ui_calls(child)
@@ -154,7 +154,7 @@ end
 
 T['i']['cancelling the Project.xml question imports nothing'] = function()
   write_project_xml(2)
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'no such choice' })
   keys('i')
   expect.equality(#M.ui_calls(child), 1)
@@ -164,10 +164,10 @@ T['i']['cancelling the Project.xml question imports nothing'] = function()
   expect.equality(M.pane_win(child, 'report'), nil)
 end
 
-T['i']['asks for a path when the repo has no Project.xml'] = function()
+T['i']['asks for a path when the Project root has no Project.xml'] = function()
   local path = child.paths.root .. '/scheme.xml'
   child:write_file(path, scheme_xml(3))
-  open_in_repo()
+  open_in_project()
   M.answer(child, { vim.NIL, path })
   keys('i')
   expect.equality(row('languages', 'Lua'), 'Lua')
@@ -180,8 +180,8 @@ T['i']['asks for a path when the repo has no Project.xml'] = function()
 end
 
 T['i']['malformed XML shows the error and leaves the Draft unchanged'] = function()
-  child:write_file(child.paths.repo .. '/.idea/codeStyles/Project.xml', '<code_scheme>\n  <option name="A"\n')
-  open_in_repo()
+  child:write_file(child.paths.project .. '/.idea/codeStyles/Project.xml', '<code_scheme>\n  <option name="A"\n')
+  open_in_project()
   M.answer(child, { 'Roomy', 'Yes' })
   keys('p')
   local before = #child:notices()
@@ -199,14 +199,14 @@ T['R'] = MiniTest.new_set()
 
 T['R']['opens the full report of the last import, per language'] = function()
   write_project_xml(2)
-  open_in_repo()
+  open_in_project()
   keys('R')
   expect.equality(M.pane_win(child, 'report'), nil)
   expect.equality(child:notices()[1].message, 'codestyle: no import to report; i imports a Scheme XML')
   M.answer(child, { 'Yes' })
   keys({ 'i', 'R' })
   local lines = M.pane_lines(child, 'report')
-  expect.equality(lines[1], 'Imported ' .. child.paths.repo .. '/.idea/codeStyles/Project.xml')
+  expect.equality(lines[1], 'Imported ' .. child.paths.project .. '/.idea/codeStyles/Project.xml')
   expect.equality(vim.list_contains(lines, 'Lua'), true)
   expect.equality(vim.list_contains(lines, '    indent.size = 2'), true)
   keys('q')
@@ -219,7 +219,7 @@ T[':Codestyle import'] = MiniTest.new_set()
 T[':Codestyle import']['[path] opens the Menu and imports'] = function()
   local path = child.paths.root .. '/scheme.xml'
   child:write_file(path, scheme_xml(3))
-  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.repo .. '/init.lua' })
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.project .. '/init.lua' })
   child.cmd('Codestyle import ' .. path)
   M.settle(child)
   expect.equality(row('languages', 'Lua'), 'Lua •1')
@@ -228,11 +228,11 @@ T[':Codestyle import']['[path] opens the Menu and imports'] = function()
   expect.equality(M.pane_lines(child, 'report')[1], 'Imported ' .. path)
 end
 
-T[':Codestyle import']['[path] imports that path in a repo with Project.xml'] = function()
+T[':Codestyle import']['[path] imports that path when the Project root has Project.xml'] = function()
   write_project_xml(2)
   local path = child.paths.root .. '/scheme.xml'
   child:write_file(path, scheme_xml(3))
-  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.repo .. '/init.lua' })
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.project .. '/init.lua' })
   child.cmd('Codestyle import ' .. path)
   M.settle(child)
   expect.equality(M.ui_calls(child), {})
@@ -243,7 +243,7 @@ end
 
 T[':Codestyle import']['with no path asks about Project.xml as i does'] = function()
   write_project_xml(2)
-  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.repo .. '/init.lua' })
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.project .. '/init.lua' })
   M.answer(child, { 'Yes' })
   child.cmd('Codestyle import')
   M.settle(child)
@@ -262,12 +262,12 @@ end
 
 T['the language list'] = MiniTest.new_set()
 
-T['the language list']['shows "Project.xml found [i] import" until the repo has .codestyle.json'] = function()
+T['the language list']['shows "Project.xml found [i] import" until the Project root has .codestyle.json'] = function()
   write_project_xml(2)
-  open_in_repo()
+  open_in_project()
   expect.equality(row('languages', 'Project.xml found'), 'Project.xml found [i] import')
   keys('q')
-  child:write_file(child.paths.repo .. '/.codestyle.json', '{"version": 1}')
+  child:write_file(child.paths.project .. '/.codestyle.json', '{"version": 1}')
   M.open_menu(child)
   expect.equality(row('languages', 'Project.xml found'), nil)
 end
@@ -281,8 +281,8 @@ end
 
 T['s']['switches between the Project and the Global Code Style'] = function()
   child:write_global({ version = 1, languages = { lua = { indent = { size = 3 } } } })
-  child:write_file(child.paths.repo .. '/.codestyle.json', { version = 1 })
-  open_in_repo()
+  child:write_file(child.paths.project .. '/.codestyle.json', { version = 1 })
+  open_in_project()
   expect.equality(scope(), 'Project Code Style')
   expect.equality(row('languages', 'Lua'), 'Lua')
   keys('s')
@@ -296,7 +296,7 @@ end
 
 T['s']['the first switch offers to copy Global or start from the defaults'] = function()
   child:write_global({ version = 1, languages = { lua = { indent = { size = 3 } } } })
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'Copy' })
   keys('s')
   local call = M.ui_calls(child)[1]
@@ -305,23 +305,23 @@ T['s']['the first switch offers to copy Global or start from the defaults'] = fu
   expect.equality(scope(), 'Project Code Style')
   expect.equality(row('languages', 'Lua'), 'Lua •1')
   keys('<C-s>')
-  expect.equality(read_json(child.paths.repo .. '/.codestyle.json').languages, { lua = { indent = { size = 3 } } })
+  expect.equality(read_json(child.paths.project .. '/.codestyle.json').languages, { lua = { indent = { size = 3 } } })
 end
 
 T['s']['starting from the defaults'] = function()
   child:write_global({ version = 1, languages = { lua = { indent = { size = 3 } } } })
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'defaults' })
   keys('s')
   expect.equality(scope(), 'Project Code Style')
   expect.equality(row('languages', 'Lua'), 'Lua')
   keys('<C-s>')
-  expect.equality(read_json(child.paths.repo .. '/.codestyle.json'), { version = 1 })
+  expect.equality(read_json(child.paths.project .. '/.codestyle.json'), { version = 1 })
 end
 
-T['s']['the first switch offers to import Project.xml when the repo has it, which imports at once'] = function()
+T['s']['the first switch offers to import Project.xml when the Project root has it, which imports at once'] = function()
   write_project_xml(2)
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'Import' })
   keys('s')
   local calls = M.ui_calls(child)
@@ -334,21 +334,24 @@ T['s']['the first switch offers to import Project.xml when the repo has it, whic
   expect.equality(scope(), 'Project Code Style')
   expect.equality(row('languages', 'Lua'), 'Lua •1')
   keys('R')
-  expect.equality(M.pane_lines(child, 'report')[1], 'Imported ' .. child.paths.repo .. '/.idea/codeStyles/Project.xml')
+  expect.equality(
+    M.pane_lines(child, 'report')[1],
+    'Imported ' .. child.paths.project .. '/.idea/codeStyles/Project.xml'
+  )
 end
 
 T['s']['cancelling the offer keeps the Global Code Style'] = function()
-  open_in_repo()
+  open_in_project()
   M.answer(child, { 'no such choice' })
   keys('s')
   expect.equality(M.ui_calls(child)[1].kind, 'select')
   expect.equality(scope(), 'Global Code Style')
-  expect.equality(vim.fn.filereadable(child.paths.repo .. '/.codestyle.json'), 0)
+  expect.equality(vim.fn.filereadable(child.paths.project .. '/.codestyle.json'), 0)
 end
 
 T['s']['asks Save / Discard / Cancel first when the Draft has changes'] = function()
-  child:write_file(child.paths.repo .. '/.codestyle.json', { version = 1 })
-  open_in_repo()
+  child:write_file(child.paths.project .. '/.codestyle.json', { version = 1 })
+  open_in_project()
   M.answer(child, { 'Roomy', 'Cancel' })
   keys({ 'p', 's' })
   expect.equality(M.ui_calls(child)[2].items, { 'Save', 'Discard', 'Cancel' })
@@ -361,15 +364,19 @@ T['s']['asks Save / Discard / Cancel first when the Draft has changes'] = functi
   expect.equality(row('languages', 'Lua'), 'Lua')
 end
 
-T['s']['outside a repo there is no Project Code Style'] = function()
-  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = child.paths.root .. '/loose/init.lua' })
+T['s']['a buffer outside the working directory has no Project Code Style'] = function()
+  local other = child.paths.root .. '/other'
+  child:write_file(other .. '/.codestyle.json', { version = 1, languages = { lua = { indent = { size = 3 } } } })
+  vim.fn.mkdir(other .. '/.git', 'p')
+  child:open_buffer({ lines = { 'x=1' }, filetype = 'lua', name = other .. '/init.lua' })
   M.open_menu(child)
+  expect.equality(scope(), 'Global Code Style')
   keys('s')
   expect.equality(scope(), 'Global Code Style')
   expect.equality(child:notices(), {
     {
       level = H.levels.WARN,
-      message = 'codestyle: no Project Code Style: the buffer is in no folder with .codestyle.json or .git',
+      message = 'codestyle: no Project Code Style: the file is outside the working directory ~/project',
     },
   })
 end

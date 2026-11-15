@@ -21,7 +21,7 @@
 --- earlier conform formatter. Returns the new lines, or nil and why not.
 ---@field format_lines fun(buf: integer, lines: string[], range?: integer[]): string[]?, string?
 
-local repo = require('codestyle.repo')
+local project_root = require('codestyle.project_root')
 
 local M = {}
 
@@ -87,7 +87,7 @@ function M.new(deps)
       code_style = code_style,
       range = range and { start_row = range[1] - 1, end_row = range[2] - 1 },
       path = path ~= '' and path or nil,
-      root = repo.root(buf) or vim.fn.getcwd(),
+      root = project_root.get(),
       arrangement = mode,
       buf = buf,
     })

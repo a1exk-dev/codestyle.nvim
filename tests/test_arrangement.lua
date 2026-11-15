@@ -295,7 +295,7 @@ end
 T['runs']['a file that Do not format matches is not rearranged'] = function()
   global({ general = { do_not_format = { '*.lua' } }, lua = lua() })
 
-  local lines = format(module({ 'function M.f() end', 'M.x=1' }), { name = child.paths.repo .. '/a.lua' })
+  local lines = format(module({ 'function M.f() end', 'M.x=1' }), { name = child.paths.project .. '/a.lua' })
 
   expect.equality(lines, module({ 'function M.f() end', 'M.x=1' }))
 end

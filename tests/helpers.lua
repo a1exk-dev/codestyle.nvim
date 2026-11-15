@@ -1,8 +1,9 @@
 -- The shared test helper of the Core (#50 Testing Decisions, ADR-0017).
 --
 -- Every test runs the Core in a child Neovim. `child.setup()` gives each case
--- a fresh child whose XDG folders and repo root are temporary folders, with
--- the fake Language Plugins of `tests/fixtures/` on the runtimepath. Tests then
+-- a fresh child whose XDG folders and Project root (its working directory)
+-- are temporary folders, with the fake Language Plugins of `tests/fixtures/`
+-- on the runtimepath. Tests then
 -- write a Code Style file, open a buffer, format it through a public entry
 -- point and read the lines and notices back. Nothing here reaches into the
 -- Core's modules.
@@ -18,7 +19,7 @@ local root = vim.fs.normalize(vim.fn.fnamemodify(debug.getinfo(1, 'S').source:su
 ---@class codestyle.test.Paths
 ---@field root string the temporary folder of the case
 ---@field config string `stdpath('config')` of the child
----@field repo string a repo root (it has `.git`)
+---@field project string the Project root: the child's working directory, with no `.git`
 
 ---@class codestyle.test.Child: MiniTest.child
 ---@field paths codestyle.test.Paths
@@ -35,20 +36,21 @@ function Child:setup(opts)
   self.paths = {
     root = tmp,
     config = tmp .. '/xdg/config/nvim',
-    repo = tmp .. '/repo',
+    project = tmp .. '/project',
   }
   for _, dir in ipairs({ 'config', 'data', 'state', 'cache' }) do
     vim.fn.mkdir(tmp .. '/xdg/' .. dir, 'p')
     vim.env['XDG_' .. dir:upper() .. '_HOME'] = tmp .. '/xdg/' .. dir
   end
   vim.fn.mkdir(self.paths.config, 'p')
-  vim.fn.mkdir(self.paths.repo .. '/.git', 'p')
+  vim.fn.mkdir(self.paths.project, 'p')
 
   local args = { '-u', root .. '/tests/minimal_init.lua' }
   for _, cmd in ipairs(opts.cmd or {}) do
     vim.list_extend(args, { '--cmd', cmd })
   end
   self.restart(args)
+  self.lua('vim.fn.chdir(...)', { self.paths.project })
   for _, plugin in ipairs(opts.plugins or { 'codestyle-lua.nvim' }) do
     self.lua('vim.opt.runtimepath:append(...)', { root .. '/tests/fixtures/' .. plugin })
   end

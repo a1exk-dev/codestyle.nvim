@@ -260,14 +260,14 @@ T['save']['writes migrated keys under their new names'] = function()
   })
 end
 
-T['save']['writes the Project file of the repo root'] = function()
-  open_draft('project', child.paths.repo)
+T['save']['writes the Project file of the Project root'] = function()
+  open_draft('project', child.paths.project)
   draft('set', 'lua', 'indent.size', 2)
 
   draft('save')
 
   expect.equality(
-    vim.json.decode(assert(read(child.paths.repo .. '/.codestyle.json'))),
+    vim.json.decode(assert(read(child.paths.project .. '/.codestyle.json'))),
     { version = 1, languages = { lua = { indent = { size = 2 } } } }
   )
   expect.equality(global_file(), nil)

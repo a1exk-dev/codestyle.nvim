@@ -3,6 +3,7 @@
 -- Scheme XML and `R` shows the report of the last import. The Menu lends
 -- them a Host: the Draft it shows, and how to show another one.
 
+local project_root = require('codestyle.project_root')
 local report_view = require('codestyle.menu.report')
 local scheme_xml = require('codestyle.scheme_xml')
 
@@ -13,17 +14,17 @@ local M = {}
 ---@field draft fun(): codestyle.Draft? the Draft that the Menu shows; nil when it is closed
 ---@field language fun(): string, string the id and the name of the current language
 ---@field name fun(id: string): string the name of General or of an installed language
----@field root fun(): string? the repo root of the buffer that the Menu was opened from
+---@field root fun(): string? the Project root, nil when the buffer that the Menu was opened from is outside it
 ---@field focus fun() focuses the Options pane
 ---@field swap fun(draft: codestyle.Draft) shows another Draft in the Menu, at the same place
 ---@field settle fun(after: fun()) asks Save / Discard / Cancel when the Draft has changes; runs `after` unless cancelled
 
 ---@class codestyle.menu.DraftActions
----@field switch_scope fun() Global ↔ Project; the first switch in a repo with no Project Code Style offers how to start it
+---@field switch_scope fun() Global ↔ Project; the first switch under a Project root with no Project Code Style offers how to start it
 ---@field set_from fun() "Set from…": picks a Preset of the current language and applies it
----@field import fun(path?: string) imports `path`; with no path, asks "Import <Project.xml>?" when the repo has it, else, or on No, asks for a path
+---@field import fun(path?: string) imports `path`; with no path, asks "Import <Project.xml>?" when the Project root has it, else, or on No, asks for a path
 ---@field report fun() opens the report of the last import into the shown Draft
----@field project_xml_found fun(): boolean the repo has `Project.xml` but no Project Code Style
+---@field project_xml_found fun(): boolean the Project root has `Project.xml` but no Project Code Style
 
 ---@param deps { presets: codestyle.Presets, scheme_xml: codestyle.SchemeXml, store: codestyle.Store, draft: (fun(scope: codestyle.Scope, root?: string): codestyle.Draft?, codestyle.BrokenFile?), notices: codestyle.Notices, host: codestyle.menu.Host }
 ---@return codestyle.menu.DraftActions
@@ -66,7 +67,7 @@ function M.new(deps)
     last = report and { draft = draft, report = report } or nil
   end
 
-  --- The repo's `Project.xml`, when it exists.
+  --- The `Project.xml` of the Project root, when it exists.
   ---@return string?
   local function project_xml()
     local root = host.root()
@@ -189,7 +190,8 @@ function M.new(deps)
         vim.log.levels.WARN,
         'always',
         'menu',
-        'no Project Code Style: the buffer is in no folder with .codestyle.json or .git'
+        'no Project Code Style: the file is outside the working directory '
+          .. vim.fn.fnamemodify(project_root.get(), ':~')
       )
       return
     end
