@@ -16,7 +16,7 @@ local saving = require('codestyle.menu.saving')
 
 ---@class codestyle.MenuOpts
 ---@field scope? codestyle.Scope the Code Style to edit; default the one of the current buffer
----@field import? string|true imports a Scheme XML once the Menu is open: this path, or `true` for the repo's `Project.xml` or a path the user gives (ADR-0010)
+---@field import? string|true imports a Scheme XML once the Menu is open: this path, or `true` to ask for one: Yes / No to the repo's `Project.xml` when it exists, else a path prompt (ADR-0010)
 
 ---@class codestyle.Menu
 ---@field open fun(opts?: codestyle.MenuOpts) opens the Menu, or focuses it when it is open
