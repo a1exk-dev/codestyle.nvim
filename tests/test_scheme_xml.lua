@@ -458,7 +458,7 @@ end
 
 T['sources'] = MiniTest.new_set()
 
-T['sources']['Project.xml is used when the repo has it, and the component is unwrapped'] = function()
+T['sources']['with no path, Project.xml is used when the repo has it, and the component is unwrapped'] = function()
   open_draft()
   write_xml(
     table.concat({
@@ -468,22 +468,24 @@ T['sources']['Project.xml is used when the repo has it, and the component is unw
     }, '\n'),
     child.paths.repo .. '/.idea/codeStyles/Project.xml'
   )
+  local report = assert(import({ root = child.paths.repo }))
+  expect.equality(report.source, child.paths.repo .. '/.idea/codeStyles/Project.xml')
+  expect.equality(stored(), { general = { hard_wrap_at = 90 } })
+end
+
+T['sources']['a given path wins over Project.xml, with no notice but the import'] = function()
+  open_draft()
+  write_xml(
+    scheme({ '  <option name="RIGHT_MARGIN" value="90" />' }),
+    child.paths.repo .. '/.idea/codeStyles/Project.xml'
+  )
   local other = write_xml(scheme({ '  <option name="RIGHT_MARGIN" value="70" />' }))
   local report = assert(import({ root = child.paths.repo, path = other }))
-  local project = child.paths.repo .. '/.idea/codeStyles/Project.xml'
-  expect.equality(report.source, project)
-  expect.equality(stored(), { general = { hard_wrap_at = 90 } })
-  -- The user is told once that the path they gave was not used.
-  local warning = {
-    level = H.levels.WARN,
-    message = ('codestyle: %s was not imported: the repo has %s, which an import always uses'):format(other, project),
-  }
-  expect.equality(child:notices()[1], warning)
-  import({ root = child.paths.repo, path = other })
-  local warnings = vim.tbl_filter(function(notice)
-    return notice.level == H.levels.WARN
-  end, child:notices())
-  expect.equality(warnings, { warning })
+  expect.equality(report.source, other)
+  expect.equality(stored(), { general = { hard_wrap_at = 70 } })
+  local notices = child:notices()
+  expect.equality(#notices, 1)
+  expect.equality(notices[1].level, H.levels.INFO)
 end
 
 T['sources']['else the given path; codeStyleConfig.xml is never read'] = function()

@@ -23,12 +23,12 @@ local reader = require('codestyle.scheme_xml.reader')
 ---@field totals codestyle.ImportTotals
 
 ---@class codestyle.SchemeXml
---- The file to import: the repo's `.idea/codeStyles/Project.xml` when it exists, else `path`.
---- `codeStyleConfig.xml` and IDE scheme folders are never read.
+--- The file to import: `path` when it is given, else the repo's `.idea/codeStyles/Project.xml` when it
+--- exists. `codeStyleConfig.xml` and IDE scheme folders are never read.
 ---@field source fun(root?: string, path?: string): string?, string? nil and why when there is none
 --- Imports into the Draft as one step. `root` is the repo root to look for `Project.xml` in, by default the
---- Draft's. Nil and the message (also given as an ERROR) when nothing was imported. A given `path` that
---- `Project.xml` wins over gives one WARN per session.
+--- Draft's, used only when no `path` is given. Nil and the message (also given as an ERROR) when nothing
+--- was imported.
 ---@field import fun(draft: codestyle.Draft, opts?: { root?: string, path?: string }): codestyle.ImportReport?, string?
 
 local M = {}
@@ -51,12 +51,12 @@ function M.new(deps)
   ---@return string?
   ---@return string?
   local function source(root, path)
+    if path then
+      return absolute(path)
+    end
     local project = root and vim.fs.joinpath(root, M.project_xml)
     if project and vim.uv.fs_stat(project) then
       return project
-    end
-    if path then
-      return absolute(path)
     end
     return nil,
       ('no Scheme XML to import: %s does not exist and no path was given'):format(
@@ -73,16 +73,6 @@ function M.new(deps)
     local path, missing = source(opts.root or draft.root, opts.path)
     if not path then
       return nil, missing
-    end
-    local given = opts.path and absolute(opts.path)
-    if given and given ~= path then
-      -- ADR-0010's order stands, but the user learns once why their file was not read.
-      deps.notices.report(
-        vim.log.levels.WARN,
-        'session',
-        'import:' .. given,
-        ('%s was not imported: the repo has %s, which an import always uses'):format(given, path)
-      )
     end
     local file, open_error = io.open(path, 'rb')
     if not file then

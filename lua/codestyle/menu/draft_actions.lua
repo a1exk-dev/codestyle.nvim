@@ -21,7 +21,7 @@ local M = {}
 ---@class codestyle.menu.DraftActions
 ---@field switch_scope fun() Global ↔ Project; the first switch in a repo with no Project Code Style offers how to start it
 ---@field set_from fun() "Set from…": picks a Preset of the current language and applies it
----@field import fun(path?: string) imports `Project.xml` of the repo, else `path`, else asks for a path
+---@field import fun(path?: string) imports `path`; with no path, asks "Import <Project.xml>?" when the repo has it, else, or on No, asks for a path
 ---@field report fun() opens the report of the last import into the shown Draft
 ---@field project_xml_found fun(): boolean the repo has `Project.xml` but no Project Code Style
 
@@ -66,17 +66,46 @@ function M.new(deps)
     last = report and { draft = draft, report = report } or nil
   end
 
-  ---@param path? string
-  local function import(path)
-    local draft = assert(host.draft())
-    if deps.scheme_xml.source(host.root(), path) then
-      run_import(draft, path)
-      return
-    end
+  --- The repo's `Project.xml`, when it exists.
+  ---@return string?
+  local function project_xml()
+    local root = host.root()
+    local path = root and vim.fs.joinpath(root, scheme_xml.project_xml)
+    return path and vim.uv.fs_stat(path) and path or nil
+  end
+
+  ---@param draft codestyle.Draft
+  local function ask_path(draft)
     vim.ui.input({ prompt = 'Import Scheme XML: ', completion = 'file' }, function(answer)
       answer = answer and vim.trim(answer)
       if answer and answer ~= '' and host.draft() == draft then
         run_import(draft, answer)
+      end
+    end)
+  end
+
+  --- Imports only the file that the user selects (ADR-0010): a given path, or
+  --- `Project.xml` once the user says Yes to it.
+  ---@param path? string
+  local function import(path)
+    local draft = assert(host.draft())
+    if path then
+      run_import(draft, path)
+      return
+    end
+    local project = project_xml()
+    if not project then
+      ask_path(draft)
+      return
+    end
+    vim.ui.select({ 'Yes', 'No' }, { prompt = ('Import %s?'):format(project) }, function(answer)
+      if host.draft() ~= draft then
+        return
+      end
+      if answer == 'Yes' then
+        run_import(draft, project)
+      elseif answer == 'No' then
+        ask_path(draft)
       end
     end)
   end
@@ -136,13 +165,15 @@ function M.new(deps)
         end,
       },
     }
-    if vim.uv.fs_stat(vim.fs.joinpath(assert(host.root()), scheme_xml.project_xml)) then
+    local project = project_xml()
+    if project then
       table.insert(choices, {
         label = 'Import ' .. scheme_xml.project_xml,
         start = function()
           local draft = show('project')
           if draft then
-            run_import(draft)
+            -- Picking this choice is the user's selection of Project.xml.
+            run_import(draft, project)
           end
         end,
       })
@@ -222,10 +253,7 @@ function M.new(deps)
     import = import,
     report = report,
     project_xml_found = function()
-      local root = host.root()
-      return root ~= nil
-        and vim.uv.fs_stat(vim.fs.joinpath(root, scheme_xml.project_xml)) ~= nil
-        and vim.uv.fs_stat(deps.store.path('project', root)) == nil
+      return project_xml() ~= nil and vim.uv.fs_stat(deps.store.path('project', assert(host.root()))) == nil
     end,
   }
 end
