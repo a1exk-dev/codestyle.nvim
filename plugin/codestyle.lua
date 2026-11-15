@@ -20,6 +20,10 @@ end, { desc = 'codestyle.nvim: format the buffer' })
 vim.keymap.set('x', '<Plug>(codestyle-format)', function()
   require('codestyle.instance').get().format_selection()
 end, { desc = 'codestyle.nvim: format the selected lines' })
+-- No default key opens the Menu (ADR-0004); users map this one.
+vim.keymap.set('n', '<Plug>(codestyle-menu)', function()
+  require('codestyle.instance').get().menu.open()
+end, { desc = 'codestyle.nvim: open the Menu' })
 
 local group = vim.api.nvim_create_augroup('codestyle', {})
 vim.api.nvim_create_autocmd('FileType', {

@@ -3,6 +3,7 @@
 -- lines back.
 
 local H = dofile('tests/helpers.lua')
+local Menu = dofile('tests/menu_helpers.lua')
 local expect = MiniTest.expect
 
 local child = H.new_child()
@@ -56,6 +57,22 @@ T['the key']['<Plug>(codestyle-format) formats the buffer in Normal mode'] = fun
   child.type_keys('<Plug>(codestyle-format)')
 
   expect.equality(child:lines(buf), { 'x = 1', 'y = 2', 'z = 3' })
+end
+
+T['the key']['<Plug>(codestyle-menu) opens the Menu in Normal mode'] = function()
+  child.type_keys('<Plug>(codestyle-menu)')
+  Menu.settle(child)
+
+  expect.equality(Menu.pane_win(child, 'languages') ~= nil, true)
+  expect.equality(Menu.pane_win(child, 'options') ~= nil, true)
+  expect.equality(Menu.pane_win(child, 'preview') ~= nil, true)
+end
+
+T['the key']['no key maps to <Plug>(codestyle-menu) after setup() with the defaults'] = function()
+  child.lua('require("codestyle").setup()')
+  Menu.settle(child)
+
+  expect.equality(child.fn.hasmapto('<Plug>(codestyle-menu)', 'n'), 0)
 end
 
 T['the key']['<leader>cf formats the selected lines in Visual mode'] = function()
