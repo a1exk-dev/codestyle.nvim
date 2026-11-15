@@ -1,0 +1,36 @@
+{
+ "key": "ij_lua_todo_marker",
+ "language": "lua",
+ "ui_tab": "Fixture",
+ "ui_group": null,
+ "ui_label": "ij_lua_todo_marker",
+ "scheme_xml_location": [
+  "custom",
+  "TODO_MARKER"
+ ],
+ "status": "verified-effect",
+ "inputs": {
+  "todo.lua": "-- TODO: x\n"
+ },
+ "base_outputs": {
+  "Default": {
+   "todo.lua": "-- TODO: x\n"
+  }
+ },
+ "results": [
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "FIXME",
+   "ui": "FIXME",
+   "internal": "FIXME",
+   "is_default": false,
+   "changed_files": {
+    "todo.lua": {
+     "output": "-- FIXME: x\n",
+     "diff": ""
+    }
+   }
+  }
+ ]
+}

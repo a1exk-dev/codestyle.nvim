@@ -1,0 +1,91 @@
+name: Auto-merge
+
+# Turns on auto-merge for each pull request that the operator opens into
+# `develop` from a branch of this repo, also one opened by hand, so GitHub
+# merges it with a merge commit once the required checks pass, and deletes
+# its branch. The pull requests of other people wait for review. The merge
+# subject follows the merge messages of the codestyle-home AGENTS.md:
+# `<type>[(<scope>)]: merge <branch> into develop (#<n>)`, with the type and
+# scope of the pull request's title. The semver Skill also turns on
+# auto-merge (`Development auto-merge: on`), with the same subject.
+#
+# It uses the default token, so the merge commit starts no workflow: the
+# required checks already passed on the pull request. GitHub also deletes
+# no branch after a merge with this token, so each hour the cleanup job
+# deletes the branch of each pull request that this workflow merged, unless
+# the branch got new commits or an open pull request uses it.
+
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - ready_for_review
+    branches:
+      - develop
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  auto-merge:
+    name: Auto-merge
+    if: >-
+      github.event_name == 'pull_request'
+      && github.event.pull_request.user.login == github.repository_owner
+      && github.event.pull_request.head.repo.full_name == github.repository
+      && !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Turn on auto-merge with the merge subject
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+          HEAD: ${{ github.event.pull_request.head.ref }}
+          BASE: ${{ github.event.pull_request.base.ref }}
+        run: |
+          if [[ ! $TITLE =~ ^([a-z]+(\([^\)]+\))?)!?:\  ]]; then
+            echo "::error::The title of #$NUMBER has no Conventional Commits type, so merge it by hand."
+            exit 1
+          fi
+          subject="${BASH_REMATCH[1]}: merge $HEAD into $BASE (#$NUMBER)"
+          if ((${#subject} > 72)); then
+            echo "::error::The merge subject has more than 72 characters, so merge #$NUMBER by hand: $subject"
+            exit 1
+          fi
+          gh pr merge "$NUMBER" --repo "$GITHUB_REPOSITORY" --auto --merge --subject "$subject"
+
+  cleanup:
+    name: Delete the branches of merged pull requests
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Delete each branch that this workflow merged and nothing uses
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr list --repo "$GITHUB_REPOSITORY" --state merged --limit 100 \
+            --json number,headRefName,headRefOid,isCrossRepository,mergedBy \
+            --jq '.[] | select(.mergedBy.login == "app/github-actions" and (.isCrossRepository | not))
+              | "\(.number) \(.headRefName) \(.headRefOid)"' |
+            while read -r number branch oid; do
+              [[ $branch != main && $branch != develop ]] || continue
+              current="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq .object.sha 2>/dev/null)" || continue
+              if [[ $current != "$oid" ]]; then
+                echo "kept $branch: it has commits after #$number"
+              elif [[ -n "$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$branch" --state open --json number --jq '.[].number')" ]]; then
+                echo "kept $branch: an open pull request uses it"
+              else
+                gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+                echo "deleted $branch of #$number"
+              fi
+            done

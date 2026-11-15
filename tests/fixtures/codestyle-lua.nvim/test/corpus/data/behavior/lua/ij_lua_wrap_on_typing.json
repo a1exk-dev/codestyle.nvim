@@ -1,0 +1,25 @@
+{
+ "key": "ij_lua_wrap_on_typing",
+ "language": "lua",
+ "ui_tab": "Fixture",
+ "ui_group": null,
+ "ui_label": "ij_lua_wrap_on_typing",
+ "scheme_xml_location": [
+  "common",
+  "WRAP_ON_TYPING"
+ ],
+ "status": "untestable-via-cli",
+ "inputs": {},
+ "base_outputs": {},
+ "results": [
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "true",
+   "ui": "true",
+   "internal": "1",
+   "is_default": false,
+   "changed_files": {}
+  }
+ ]
+}

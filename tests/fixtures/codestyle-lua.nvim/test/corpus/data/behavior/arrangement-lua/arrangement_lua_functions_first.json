@@ -1,0 +1,16 @@
+{
+ "record_type": "arrangement",
+ "key": "arrangement_lua_functions_first",
+ "language": "arrangement-lua",
+ "status": "verified-effect",
+ "results": [
+  {
+   "base": "Default",
+   "base_settings": {},
+   "value": "<arrangement><rules><section><rule><match><FUNCTION>true</FUNCTION></match></rule></section><section><rule><match><FIELD>true</FIELD></match></rule></section></rules></arrangement>",
+   "internal": "<arrangement><rules><section><rule><match><FUNCTION>true</FUNCTION></match></rule></section><section><rule><match><FIELD>true</FIELD></match></rule></section></rules></arrangement>",
+   "case": "tests/gui/arrangement/lua/order/functions_first",
+   "changed_files": {}
+  }
+ ]
+}
