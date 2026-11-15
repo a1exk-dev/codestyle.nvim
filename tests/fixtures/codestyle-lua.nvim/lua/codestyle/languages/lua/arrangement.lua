@@ -1,7 +1,9 @@
 -- The fake `lua` Arrangement module (ADR-0011): the entries are the members of
 -- the module table, the identifier that the chunk's last `return` gives.
 -- `M.x = 1` is a `field`, `function M.x()` and `M.x = function` a `function`,
--- `function M:x()` a `method`. Doc comments (`---`) right above a member and
+-- `function M:x()` a `method`. The `name = value` fields of a member that
+-- holds a table constructor are its children, `function` or `field` by their
+-- value, for nested Arrangement. Doc comments (`---`) right above a member and
 -- a comment after it on its last line travel with it; other comments stay.
 -- Keep-Together links: `get_x` with `set_x`, calls of `M.x()`, `M:x()` and
 -- `self:x()`, and the members of each parent that the LSP names.
@@ -55,6 +57,33 @@ local function member(node, module, source)
     return 'function', text(key, source)
   end
   return 'field', text(key, source)
+end
+
+--- The `name = value` fields of a table constructor, as child entries.
+---@param node TSNode a member's statement
+---@param source string
+---@return codestyle.ArrangementEntry[]
+local function fields(node, source)
+  local values = node:type() == 'assignment_statement' and node:named_child(1)
+  local value = values and values:named_child(0)
+  local children = {}
+  if not value or value:type() ~= 'table_constructor' then
+    return children
+  end
+  for field in value:iter_children() do
+    local key, field_value = field:field('name')[1], field:field('value')[1]
+    if field:type() == 'field' and key and key:type() == 'identifier' then
+      table.insert(
+        children,
+        entry.new({
+          node = field,
+          types = { field_value and field_value:type() == 'function_definition' and 'function' or 'field' },
+          name = text(key, source),
+        })
+      )
+    end
+  end
+  return children
 end
 
 --- The names of the members that a member calls, in the order of the calls.
@@ -163,6 +192,7 @@ function M.entries(ctx)
         modifiers = modifiers,
         name = name,
         namespace = module,
+        children = fields(child, source),
       })
       table.insert(entries, new)
       by_name[name] = by_name[name] or new

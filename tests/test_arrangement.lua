@@ -196,6 +196,94 @@ T['runs']['a range rearranges only the entries it touches, among themselves'] = 
   expect.equality(lines, module({ 'M.d=4', 'M.b = 2', 'M.c = 3', 'M.a=1' }))
 end
 
+T['runs']['a range in an entry that does not move formats only the range'] = function()
+  global({ lua = lua(rules({ { { is = { 'function' }, order = 'by_name' } } })) })
+
+  -- Line 9 is `local y=2` of `M.b`; nothing moves. The line keeps the indent
+  -- of the kept line above it.
+  local members = { 'function M.a()', 'return 1', 'end', '', 'function M.b()', 'local x=1', 'local y=2', 'end' }
+  local lines = format(module(members), { range = { 9, 9 } })
+
+  expect.equality(
+    lines,
+    module({ 'function M.a()', 'return 1', 'end', '', 'function M.b()', 'local x=1', 'local y = 2', 'end' })
+  )
+end
+
+T['runs']['a range grows over the entries that move, not over an entry that stays'] = function()
+  global({ lua = lua(rules({ { { is = { 'function' }, order = 'by_name' } } })) })
+
+  -- Lines 5 to 9 cover the end of `M.b`, all of `M.a` and the start of `M.c`.
+  -- `M.b` and `M.a` swap, with a blank line next to each changed neighbour;
+  -- `M.c` stays unformatted, and so does the field after it.
+  local members = {
+    'function M.b()',
+    'return 2',
+    'end',
+    'function M.a()',
+    'return 1',
+    'end',
+    'function M.c()',
+    'return 3',
+    'end',
+    'M.x=1',
+  }
+  local lines = format(module(members), { range = { 5, 9 } })
+
+  expect.equality(
+    lines,
+    module({
+      'function M.a()',
+      '    return 1',
+      'end',
+      '',
+      'function M.b()',
+      '    return 2',
+      'end',
+      '',
+      'function M.c()',
+      'return 3',
+      'end',
+      'M.x=1',
+    })
+  )
+end
+
+T['runs']['entries that move inside an entry that stays grow the range over themselves only'] = function()
+  global({ lua = lua(rules({ { { is = { 'field' } } }, { { is = { 'function' }, order = 'by_name' } } })) })
+
+  -- Lines 7 and 8 are the end of `b` and the start of `a`, inside `M.K`.
+  local members = {
+    'M.K={',
+    'n=1,',
+    'b=function()',
+    'return 2',
+    'end,',
+    'a=function()',
+    'return 1',
+    'end,',
+    '}',
+    'M.x=1',
+  }
+  local lines = format(module(members), { range = { 7, 8 } })
+
+  expect.equality(
+    lines,
+    module({
+      'M.K={',
+      'n=1,',
+      '    a = function()',
+      '        return 1',
+      '    end,',
+      '    b = function()',
+      '        return 2',
+      '    end,',
+      '}',
+      'M.x=1',
+    })
+  )
+end
+
 T['runs']['Arrangement ignores formatter markers'] = function()
   global({ lua = lua(rules({ { { is = { 'field' }, order = 'by_name' } } })) })
 

@@ -585,14 +585,15 @@ end
 --- Rearranges the entries that `module.entries(ctx)` finds (ADR-0011). Only
 --- entries that intersect `ctx.range` take part, and they move only among
 --- themselves. The text between them stays where it is, except for the blank
---- lines that `module.blank_lines` asks for where the neighbours changed.
+--- lines that `module.blank_lines` asks for where the neighbours changed. An
+--- entry moved when its place among its own siblings changed (ADR-0014).
 ---@param ctx codestyle.ArrangementContext
 ---@param arrangement codestyle.Arrangement
 ---@param plugin codestyle.ArrangementPlugin
 ---@param lines string[] the text; `ctx.source` is masked in an embedded part
 ---@return codestyle.Edit[] edits in text order
 ---@return codestyle.ArrangementMatch[] matches of the entries that took part, positions after the edits
----@return codestyle.Range? span the lines that the entries that took part cover after the edits
+---@return codestyle.Range[] spans the lines that each entry that moved covers after the edits, in text order
 function M.arrange(ctx, arrangement, plugin, lines)
   local source = table.concat(lines, '\n')
   local starts, offset = {}, 0
@@ -621,7 +622,7 @@ function M.arrange(ctx, arrangement, plugin, lines)
 
   local top = taking_part(plugin.module.entries(ctx) or {})
   if #top == 0 then
-    return {}, {}, nil
+    return {}, {}, {}
   end
   local rules = compile(arrangement, plugin.spec)
   local blank_lines = plugin.module.blank_lines
@@ -631,7 +632,7 @@ function M.arrange(ctx, arrangement, plugin, lines)
     table.insert(out, piece)
     length = length + #piece
   end
-  local found = {} ---@type { offset: integer, end_offset?: integer, rule?: codestyle.CompiledRule }[]
+  local found = {} ---@type { offset: integer, end_offset?: integer, rule?: codestyle.CompiledRule, moved: boolean }[]
 
   ---@param entry codestyle.ArrangementEntry
   local function first(entry)
@@ -659,8 +660,9 @@ function M.arrange(ctx, arrangement, plugin, lines)
   local emit_siblings
   ---@param entry codestyle.ArrangementEntry
   ---@param rule? codestyle.CompiledRule
-  local function emit_entry(entry, rule)
-    local match = { offset = length, rule = rule }
+  ---@param moved boolean
+  local function emit_entry(entry, rule, moved)
+    local match = { offset = length, rule = rule, moved = moved }
     table.insert(found, match)
     local children = taking_part(entry.children)
     if #children == 0 then
@@ -681,14 +683,12 @@ function M.arrange(ctx, arrangement, plugin, lines)
         local changed = order[index - 1] ~= entries[index - 1] or entry ~= entries[index]
         emit(between(order[index - 1], entry, gap, changed))
       end
-      emit_entry(entry, matched[entry])
+      emit_entry(entry, matched[entry], entry ~= entries[index])
     end
   end
 
   emit(source:sub(1, first(top[1])))
-  local span_start = length
   emit_siblings(top)
-  local span_end = length
   emit(source:sub(last(top[#top]) + 1))
 
   local new_lines = vim.split(table.concat(out), '\n', { plain = true })
@@ -708,10 +708,14 @@ function M.arrange(ctx, arrangement, plugin, lines)
     return row - 1, at - new_starts[row]
   end
 
-  local result = {} ---@type codestyle.ArrangementMatch[]
+  local result, spans = {}, {} ---@type codestyle.ArrangementMatch[], codestyle.Range[]
   for _, entry in ipairs(found) do
     local row, col = position(entry.offset)
     local end_row, end_col = position(entry.end_offset)
+    if entry.moved then
+      local last_row = (position(math.max(entry.offset, entry.end_offset - 1)))
+      table.insert(spans, { start_row = row, end_row = last_row })
+    end
     table.insert(result, {
       language = ctx.language,
       row = row,
@@ -725,8 +729,10 @@ function M.arrange(ctx, arrangement, plugin, lines)
   table.sort(result, function(a, b)
     return a.row < b.row or (a.row == b.row and a.col < b.col)
   end)
-  local span = { start_row = (position(span_start)), end_row = (position(math.max(span_start, span_end - 1))) }
-  return text.diff(lines, new_lines), result, span
+  table.sort(spans, function(a, b)
+    return a.start_row < b.start_row
+  end)
+  return text.diff(lines, new_lines), result, spans
 end
 
 return M
