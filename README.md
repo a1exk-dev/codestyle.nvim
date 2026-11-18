@@ -46,8 +46,8 @@ With another plugin manager: install the same repos, and put each Language Plugi
 
 The specs above install the latest release, because `main` holds only released commits. To choose when a breaking minor version reaches you, pin a range on each repo:
 
-- lazy.nvim: `version = '^0.1'` stays on 0.1.x. From 1.0, `version = '1.*'` stays on 1.x.
-- `vim.pack`: `{ src = 'https://github.com/a1exk-dev/codestyle.nvim', version = vim.version.range('^0.1') }`, or `vim.version.range('1.*')` from 1.0.
+- lazy.nvim: `version = '^0.<minor>'` stays on one minor version: for example, `'^0.1'` keeps you on 0.1.x. From 1.0, `version = '1.*'` stays on 1.x.
+- `vim.pack`: `{ src = 'https://github.com/a1exk-dev/codestyle.nvim', version = vim.version.range('^0.<minor>') }`, or `vim.version.range('1.*')` from 1.0.
 
 Each release is a Git tag and a [GitHub release](https://github.com/a1exk-dev/codestyle.nvim/releases) with its notes. There are no pre-release tags.
 
