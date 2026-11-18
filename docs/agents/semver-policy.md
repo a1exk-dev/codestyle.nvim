@@ -7,7 +7,7 @@
 - Development merge: merge commit
 - Production merge: merge commit
 - Finish mode: pull request
-- Tag and back-merge: CI
+- Tag and back-merge: Skill
 - Back-merge conflicts: automatic
 - Development auto-merge: on
 - Production auto-merge: off
