@@ -19,6 +19,10 @@
 
 local M = {}
 
+--- The names of the `codestyle.Setup` fields above, in the same order. The
+--- docs check of `:help codestyle` reads them, so keep both lists in step.
+M.fields = { 'filetypes', 'keys', 'presets' }
+
 ---@return codestyle.SetupStore
 function M.new()
   ---@type codestyle.Setup
