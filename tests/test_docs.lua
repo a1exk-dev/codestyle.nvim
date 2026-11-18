@@ -1,9 +1,10 @@
 -- The docs check (codestyle-home#64): `:help codestyle` is the full user
 -- reference, so it names every command, subcommand, `<Plug>` map, default key
 -- and `setup{}` field that the running Core registers, and nothing that it
--- does not register.
+-- does not register. The README is a short front page: it may leave names out,
+-- but it names nothing that the Core does not register (codestyle-home#63).
 --
--- How the help names each kind:
+-- How the help and the README name each kind:
 --   command      `:Codestyle` (also after a range, as `:[range]Codestyle`)
 --   subcommand   `:Codestyle format`, or the tag `*:Codestyle-format*`
 --   <Plug> map   `<Plug>(codestyle-format)`
@@ -15,6 +16,7 @@ local H = dofile('tests/helpers.lua')
 local expect = MiniTest.expect
 
 local help_file = 'doc/codestyle.txt'
+local readme_file = 'README.md'
 
 local child = H.new_child()
 
@@ -111,6 +113,29 @@ local function named(text)
   return found
 end
 
+--- The names of each kind that a text names and the Core does not register.
+---@param registered table<codestyle.test.DocKind, string[]>
+---@param found table<codestyle.test.DocKind, table<string, true>>
+---@param doc string the name of the text in each problem
+---@return string[]
+local function unregistered(registered, found, doc)
+  local problems = {}
+  for _, kind in ipairs(kinds) do
+    local known = {}
+    for _, name in ipairs(registered[kind]) do
+      known[name] = true
+    end
+    local extra = vim.tbl_keys(found[kind])
+    table.sort(extra)
+    for _, name in ipairs(extra) do
+      if not known[name] then
+        table.insert(problems, ('%s %s is in the %s but not registered'):format(kind, name, doc))
+      end
+    end
+  end
+  return problems
+end
+
 --- The docs check: what the Core registers and the help does not name, then
 --- what the help names and the Core does not register.
 ---@param registered table<codestyle.test.DocKind, string[]>
@@ -120,22 +145,23 @@ local function check(registered, text)
   local found = named(text)
   local problems = {}
   for _, kind in ipairs(kinds) do
-    local known = {}
     for _, name in ipairs(registered[kind]) do
-      known[name] = true
       if not found[kind][name] then
         table.insert(problems, ('%s %s is not in the help'):format(kind, name))
       end
     end
-    local extra = vim.tbl_keys(found[kind])
-    table.sort(extra)
-    for _, name in ipairs(extra) do
-      if not known[name] then
-        table.insert(problems, ('%s %s is in the help but not registered'):format(kind, name))
-      end
-    end
   end
-  return problems
+  return vim.list_extend(problems, unregistered(registered, found, 'help'))
+end
+
+--- The docs check of the README (codestyle-home#63): the README is a short
+--- front page, so it may leave names out, but it names nothing that the Core
+--- does not register.
+---@param registered table<codestyle.test.DocKind, string[]>
+---@param text string the README text
+---@return string[] # the problems, empty when the README agrees with the Core
+local function readme_check(registered, text)
+  return unregistered(registered, named(text), 'README')
 end
 
 --- What the running Core in the child registers, read from Neovim itself and
@@ -205,6 +231,10 @@ T['the help names what the Core registers, and nothing else'] = function()
   expect.equality(check(registered(), read(help_file)), {})
 end
 
+T['the README names nothing that the Core does not register'] = function()
+  expect.equality(readme_check(registered(), read(readme_file)), {})
+end
+
 T['the docs check'] = MiniTest.new_set()
 
 T['the docs check']['finds a registered name that the help leaves out'] = function()
@@ -253,6 +283,32 @@ T['the docs check']['finds a name in the help that the Core does not register'] 
     'plug <Plug>(codestyle-sort) is in the help but not registered',
     'key <leader>cs is in the help but not registered',
     'setup theme is in the help but not registered',
+  })
+end
+
+T['the docs check']['finds a name in the README that the Core does not register'] = function()
+  local core = {
+    command = { 'Codestyle' },
+    subcommand = { 'format', 'import' },
+    plug = { '<Plug>(codestyle-format)', '<Plug>(codestyle-menu)' },
+    key = { '<leader>cf' },
+    setup = { 'filetypes', 'keys' },
+  }
+  local text = table.concat({
+    'Open the Menu with `:Codestyle`, or format with `:Codestyle fmt`.',
+    'Map <Plug>(codestyle-open) to <leader>co.',
+    '```lua',
+    "require('codestyle').setup({ keys = false, style = 'psr12' })",
+    "require('conform').setup({ formatters_by_ft = { ['*'] = { 'codestyle' } } })",
+    '```',
+  }, '\n')
+
+  -- The README is a short front page: it may leave registered names out.
+  expect.equality(readme_check(core, text), {
+    'subcommand fmt is in the README but not registered',
+    'plug <Plug>(codestyle-open) is in the README but not registered',
+    'key <leader>co is in the README but not registered',
+    'setup style is in the README but not registered',
   })
 end
 
