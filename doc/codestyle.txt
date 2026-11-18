@@ -1,0 +1,364 @@
+*codestyle.txt*  PhpStorm's Code Style in Neovim
+
+                                       Type |gO| to see the table of contents.
+
+==============================================================================
+INTRODUCTION                                                       *codestyle*
+
+codestyle.nvim brings PhpStorm's Code Style to Neovim. The Menu edits the
+Options of each language, with a Preview that is reformatted at once, and the
+Core formats real buffers with the saved Code Style. The output matches
+PhpStorm's Reformat Code.
+
+The Core holds the Menu, the Code Style storage and the formatting engine.
+Each language comes from a separate Language Plugin, see
+|codestyle-language-plugins|.
+
+The Core is in 0.x: a minor version can change how you set it up.
+
+Requirements ~
+                                                    *codestyle-requirements*
+- Neovim 0.11 or later.
+- snacks.nvim, which draws the Menu.
+- The Tree-sitter parsers of your Language Plugins. Each plugin's help lists
+  them. A missing parser gives one warning and an entry in
+  |codestyle-health|; nothing is installed for you.
+- `shfmt` on your `PATH` for Shell Script.
+
+==============================================================================
+LANGUAGE PLUGINS                                  *codestyle-language-plugins*
+
+The Core formats nothing on its own. Each language is a separate Neovim
+plugin, a Language Plugin, that supplies the Options, the Tabs and Preview
+samples of the Menu, and the formatting rules.
+
+A Language Plugin works once it is on the 'runtimepath' next to the Core:
+the Core finds it on first use, and no `setup()` is needed. The README of
+codestyle.nvim tells how to install the Core and its Language Plugins, and
+lists the released Language Plugins and their parsers.
+
+Each Language Plugin has its own help file with the tag |codestyle-<id>|,
+where `<id>` is its language id, such as `:help codestyle-json`. It lists the
+language's filetypes, parsers and Options.
+
+The language `general` is part of the Core. It holds the Options that every
+language shares: "Hard wrap at", "Do not format" and the formatter markers
+(`@formatter:off` and `@formatter:on`).
+
+Which Language Plugin formats a buffer ~
+                                                       *codestyle-filetypes*
+The Core chooses at each format run, and stops at the first step that gives
+an answer:
+
+1. `vim.b.codestyle_language`, a language id for one buffer.
+2. |codestyle-setup-filetypes|, a language id or `false` per filetype.
+3. The Language Plugin that lists the buffer's 'filetype'.
+4. When no plugin lists the filetype, or it is empty, the plugin whose file
+   name patterns match, as PhpStorm assigns file names to a language.
+
+When two plugins claim the same buffer at the same step, neither formats it.
+One warning names both, and `setup{ filetypes = ... }` picks one.
+
+==============================================================================
+SETUP                                                        *codestyle-setup*
+
+`setup()` is optional. The Core works with no call. Call it from your
+config to keep your choices: >lua
+
+    require('codestyle').setup({
+      filetypes = { htmldjango = 'twig', xml = false },
+      keys = true,
+      presets = {},
+    })
+<
+Each call replaces the choices of the call before. It also maps or unmaps
+the default key at once, see |codestyle-default-key|.
+
+filetypes                                          *codestyle-setup-filetypes*
+    Table of filetype to language id, or to `false`, which turns
+    codestyle.nvim off for that filetype. It wins over the filetype and the
+    file name patterns of the Language Plugins. Default: empty.
+
+keys                                                    *codestyle-setup-keys*
+    `false` leaves the default key `<leader>cf` unmapped, see
+    |codestyle-keys|. Default: `true`.
+
+presets                                              *codestyle-setup-presets*
+    Your own Presets: a list of `{ name, language, values }`. `language` is
+    the language id whose "Set from…" list in the Menu shows the Preset,
+    `general` included. `values` holds Option values by language id, in the
+    shape of the Code Style file. They are listed after the plugin's
+    Presets, marked "(user)". Default: empty. >lua
+
+    presets = {
+      {
+        name = 'Team',
+        language = 'general',
+        values = { general = { hard_wrap_at = 100 } },
+      },
+    },
+<
+==============================================================================
+COMMANDS                                                  *codestyle-commands*
+
+:Codestyle                                                        *:Codestyle*
+    Opens the Menu on the Code Style of the current buffer.
+
+:[range]Codestyle format                                   *:Codestyle-format*
+    Formats the current buffer with its saved Code Style, or only the lines
+    of [range]. Arrangement runs first when it is on, see
+    |codestyle-arrangement|.
+
+:[range]Codestyle arrange                                 *:Codestyle-arrange*
+    Rearranges the buffer, or the entries in [range], also when "Rearrange
+    when formatting" is off, then formats.
+
+:Codestyle import [path]                                   *:Codestyle-import*
+    Opens the Menu and imports a Scheme XML into the Code Style it edits,
+    see |codestyle-import|. With no [path] the Core asks for one.
+
+==============================================================================
+KEYS                                                          *codestyle-keys*
+
+<Plug>(codestyle-format)                          *<Plug>(codestyle-format)*
+    Normal mode: formats the whole buffer. Visual mode: formats the selected
+    lines. A charwise selection counts as whole lines, and a blockwise one is
+    refused with a notice.
+
+<Plug>(codestyle-menu)                              *<Plug>(codestyle-menu)*
+    Normal mode: opens the Menu. No key is mapped to it; map your own: >lua
+
+    vim.keymap.set('n', '<F2>', '<Plug>(codestyle-menu)')
+<
+Default key ~
+                                                   *codestyle-default-key*
+The Core maps `<leader>cf` to <Plug>(codestyle-format) in Normal and Visual
+mode when you call `setup()`, or at the end of startup when you do not call
+it. So set 'mapleader' before you call `setup()`. The key is not mapped when
+it is already mapped, or with `setup{ keys = false }`.
+
+gq ~
+                                                              *codestyle-gq*
+In a buffer that a Language Plugin claims, the Core sets 'formatexpr' to
+`v:lua.require'codestyle'.formatexpr()`, so |gq| formats whole lines with
+the Code Style. It does not replace a 'formatexpr' that you or another
+plugin set, and it clears its own when the buffer is no longer claimed. In
+Insert mode, text still wraps at 'textwidth' as usual.
+
+==============================================================================
+FORMAT API                                                  *codestyle-format*
+
+require('codestyle').format({opts})                       *codestyle.format()*
+    Formats a buffer with its saved Code Style, as one undo step. Every key,
+    command and the conform.nvim formatter call it. {opts} is optional:
+
+    buf          Buffer number, 0 or nil for the current buffer.
+    range        `{ start_line, end_line }`: whole lines, 1-based and
+                 inclusive. nil formats the whole buffer.
+    arrangement  `'auto'` (default) rearranges when the language's
+                 Arrangement is on; `'force'` rearranges also when it is
+                 off; `'off'` never rearranges; `'only'` rearranges and
+                 formats nothing, as PhpStorm's Rearrange Code.
+>lua
+    require('codestyle').format({ buf = 0, range = { 10, 20 } })
+<
+A buffer that no Language Plugin claims gives one warning and stays as it
+was. When its parser is missing, nothing is formatted, and one warning says
+what to install. A syntax error gives no notice: the code around it is
+formatted and the broken part is kept as written.
+
+A real buffer is always formatted with the saved Code Style, never with the
+unsaved changes of the Menu.
+
+==============================================================================
+CONFORM AND LAZYVIM                                        *codestyle-conform*
+
+When conform.nvim is loaded, the Core adds the formatter `codestyle` to it.
+The formatter is available only in a buffer that a Language Plugin claims and
+whose parser is installed, so conform can fall back to LSP elsewhere. The
+Core never edits `formatters_by_ft`. Add the formatter for every filetype,
+because one language can span several filetypes: >lua
+
+    require('conform').setup({
+      formatters_by_ft = { ['*'] = { 'codestyle' } },
+    })
+<
+LazyVim formats through conform, so the same line in the `opts` of
+conform.nvim makes LazyVim's `<leader>cf` and its format on save use
+codestyle.nvim: >lua
+
+    { 'stevearc/conform.nvim', opts = {
+      formatters_by_ft = { ['*'] = { 'codestyle' } },
+    } }
+<
+Remove other formatters of the same filetypes, or they change what
+codestyle.nvim writes. |codestyle-health| lists them.
+
+==============================================================================
+FORMAT ON SAVE                                      *codestyle-format-on-save*
+
+The Core has no format on save of its own. With conform.nvim or LazyVim, use
+theirs, see |codestyle-conform|. Without conform, add an autocmd: >lua
+
+    vim.api.nvim_create_autocmd('BufWritePre', {
+      callback = function(args)
+        require('codestyle').format({ buf = args.buf })
+      end,
+    })
+<
+==============================================================================
+THE MENU                                                      *codestyle-menu*
+
+The Menu edits a Code Style, as PhpStorm's Settings > Editor > Code Style
+page does. Open it with `:Codestyle` or <Plug>(codestyle-menu). It shows
+three panes over the editor:
+
+- The languages: `General` and each installed Language Plugin.
+- The Options of one Tab of the language, such as Tabs and Indents, Spaces,
+  or Wrapping and Braces. Options are grouped as in PhpStorm.
+- The Preview: sample code that is reformatted at once when an Option
+  changes.
+
+Your changes form a Draft. The Preview shows the Draft at once, but no file
+and no real buffer gets it until you save. Closing the Menu with unsaved
+changes asks Save, Discard or Cancel.
+
+Keys of every pane ~
+    <Tab>, <S-Tab>  next, previous Tab
+    <C-h>, <C-l>    pane to the left, to the right
+    u, <C-r>        undo, redo the Draft
+    <C-s>           save
+    q, <Esc>        close
+    g?              list the keys of the pane
+    s               switch between the Global and the Project Code Style
+    p               set from a Preset ("Set from…")
+    i               import a Scheme XML, see |codestyle-import|
+    R               the report of the last import
+
+Keys of the Options pane ~
+    <Space>         toggle or cycle the value
+    <CR>            edit the value, or fold a Group
+    l, h            next, previous value
+    x               reset the Option to its default
+    za              fold a Group
+    f, F            filter the Options of every Tab, clear the filter
+
+The mouse works too: a left click edits a value, a right click toggles or
+cycles it.
+
+Presets ~
+                                                           *codestyle-presets*
+`p` lists the Presets of the language, such as PSR-12, then your own from
+|codestyle-setup-presets|. A Preset overwrites the Options it names, also of
+other languages, as one undo step. The Code Style keeps only the values,
+never the Preset's name.
+
+==============================================================================
+SCHEME XML IMPORT                                           *codestyle-import*
+
+The Core imports PhpStorm's own Code Style files, Scheme XML, such as
+`.idea/codeStyles/Project.xml` or a scheme exported from the IDE. Start it
+with `i` in the Menu or with `:Codestyle import [path]`.
+
+- With a path, the Core imports that file.
+- With no path and a `.idea/codeStyles/Project.xml` at the Project root, the
+  Core asks whether to import it. No opens a path prompt.
+- Otherwise it asks for a path.
+
+The import replaces the Draft of the Code Style that the Menu edits: every
+installed language is reset to its defaults, then the values of the XML are
+applied, so the result formats as PhpStorm does. It is one undo step, and
+nothing is written until you save.
+
+One message gives the totals. `R` in the Menu opens the full report: for each
+language, the imported values, the fields that codestyle.nvim leaves out,
+unknown fields, invalid values, and languages with no installed Language
+Plugin. To import a language later, install its plugin and import again.
+
+==============================================================================
+WHERE THE CODE STYLE IS STORED                             *codestyle-storage*
+
+Global Code Style ~
+    `stdpath('config')/codestyle.json`, such as
+    `~/.config/nvim/codestyle.json`. Used for every buffer that has no
+    Project Code Style.
+
+Project Code Style ~
+    `.codestyle.json` at the Project root, to commit and share with your
+    team. The Project root is the working directory (|:pwd|) of the current
+    window, so |:cd|, |:tcd| and |:lcd| switch projects. It applies to each
+    buffer whose file is under the Project root, and it replaces the Global
+    Code Style completely. `s` in the Menu switches to it, and the first
+    switch starts it as a copy of the Global Code Style, from the defaults,
+    or from `Project.xml`.
+
+Both files hold only the values that differ from the defaults, as JSON.
+Saving keeps the values of languages that you have not installed, so a
+teammate without a Language Plugin does not erase them.
+
+A broken file is refused as a whole: no buffer of its scope is formatted, and
+each run gives one error with the file and the line. Fix or delete the file.
+
+==============================================================================
+ARRANGEMENT                                            *codestyle-arrangement*
+
+Arrangement reorders code elements, such as class members, attributes or CSS
+declarations, by the rules of the Arrangement Tab of a language, as
+PhpStorm's Rearrange Code does. While "Rearrange when formatting" is on,
+every format rearranges first, so moved code is formatted too.
+`:Codestyle arrange` always rearranges. With a range, only the entries that
+the range touches move, and each moved entry is formatted whole.
+
+Keys of the Arrangement Tab ~
+    o               add a rule in a new Slot below, or an alias
+    a               add a rule to this Slot
+    <CR>            edit the rule
+    J, K            move the rule down, up
+    gJ, gK          move the Slot down, up
+    dd              delete the rule or the alias
+    r               rename the alias
+    X               reset the whole Arrangement
+
+Rule names use Vim regexes, see |regex|, which match the whole name, case
+sensitive. An invalid stored Arrangement gives one warning, and the
+language's default Arrangement is used.
+
+==============================================================================
+EMBEDDED CODE                                             *codestyle-embedded*
+
+A file of one language can hold code of another, such as the `<script>` and
+`<style>` of an HTML file. The Language Plugin of the file's language marks
+those parts, and the Core formats each with its own Language Plugin and
+parser, with that language's indent, as PhpStorm does. Your Tree-sitter
+injection queries play no part.
+
+When the language of a part has no Language Plugin or no parser, the part is
+kept as written, and only its place moves. One warning names what is missing.
+
+Formatter markers ~
+                                                           *codestyle-markers*
+Code between `@formatter:off` and `@formatter:on` comments is kept as
+written, in every language. The `General` language holds the marker texts
+and the "Do not format" file patterns, which skip whole files.
+
+==============================================================================
+HEALTH                                                      *codestyle-health*
+
+`:checkhealth codestyle` lists each open buffer that a Language Plugin
+claims, and for each one:
+
+- why it is not formatted, such as a missing parser or two plugins that
+  claim it;
+- other conform.nvim formatters of its filetype, which change what
+  codestyle.nvim writes;
+- the attached LSP clients that can format it, which give other output when
+  a key or format on save falls back to LSP;
+- an `.editorconfig` with `trim_trailing_whitespace = true` while "Keep
+  indents on empty lines" is on, because the trim strips those indents on
+  save.
+
+It changes no file, buffer or setting. The one exception: when conform.nvim
+is loaded and does not have the `codestyle` formatter yet, the check adds
+it, as the Core does when conform loads, see |codestyle-conform|.
+
+ vim:tw=78:ts=8:ft=help:norl:
