@@ -20,7 +20,8 @@
 local M = {}
 
 --- The names of the `codestyle.Setup` fields above, in the same order. The
---- docs check of `:help codestyle` reads them, so keep both lists in step.
+--- docs check of `:help codestyle` reads them, and a test of
+--- `tests/test_docs.lua` fails when they and the fields above disagree.
 M.fields = { 'filetypes', 'keys', 'presets' }
 
 ---@return codestyle.SetupStore

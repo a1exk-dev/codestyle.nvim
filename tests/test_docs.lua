@@ -235,6 +235,21 @@ T['the README names nothing that the Core does not register'] = function()
   expect.equality(readme_check(registered(), read(readme_file)), {})
 end
 
+T['the setup{} field list names the fields of the codestyle.Setup class, in order'] = function()
+  local annotated, in_class = {}, false
+  for _, line in ipairs(vim.split(read('lua/codestyle/setup.lua'), '\n')) do
+    if line:match('^%-%-%-@class ') then
+      in_class = line == '---@class codestyle.Setup'
+    elseif in_class and not line:match('^%-%-%-') then
+      in_class = false
+    elseif in_class then
+      table.insert(annotated, line:match('^%-%-%-@field ([%w_]+)'))
+    end
+  end
+
+  expect.equality(child.lua_get("require('codestyle.setup').fields"), annotated)
+end
+
 T['the docs check'] = MiniTest.new_set()
 
 T['the docs check']['finds a registered name that the help leaves out'] = function()
