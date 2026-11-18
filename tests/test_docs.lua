@@ -37,6 +37,16 @@ local T = MiniTest.new_set({
 ---@type codestyle.test.DocKind[]
 local kinds = { 'command', 'subcommand', 'plug', 'key', 'setup' }
 
+--- An empty table for each kind.
+---@return table<codestyle.test.DocKind, table>
+local function by_kind()
+  local tables = {}
+  for _, kind in ipairs(kinds) do
+    tables[kind] = {}
+  end
+  return tables
+end
+
 ---@param path string
 ---@return string
 local function read(path)
@@ -61,7 +71,7 @@ local function setup_table_keys(text)
       break
     end
     local module = text:sub(1, start - 1):match('require%s*%(?%s*[\'"]([^\'"]+)[\'"]%s*%)?%.$')
-    local depth, top = 1, {}
+    local depth, top_level_chars = 1, {}
     local pos = open + 1
     while pos <= #text and depth > 0 do
       local char = text:sub(pos, pos)
@@ -70,12 +80,12 @@ local function setup_table_keys(text)
       elseif char == '}' then
         depth = depth - 1
       elseif depth == 1 then
-        table.insert(top, char)
+        table.insert(top_level_chars, char)
       end
       pos = pos + 1
     end
     if not module or module == 'codestyle' then
-      for key in table.concat(top):gmatch('([%a_][%w_]*)%s*=[^=]') do
+      for key in table.concat(top_level_chars):gmatch('([%a_][%w_]*)%s*=[^=]') do
         table.insert(keys, key)
       end
     end
@@ -88,7 +98,7 @@ end
 ---@param text string
 ---@return table<codestyle.test.DocKind, table<string, true>>
 local function named(text)
-  local found = { command = {}, subcommand = {}, plug = {}, key = {}, setup = {} }
+  local found = by_kind()
   for name in text:gmatch('[:%]](Codestyle%w*)') do
     found.command[name] = true
   end
@@ -141,7 +151,7 @@ end
 ---@param registered table<codestyle.test.DocKind, string[]>
 ---@param text string the help text
 ---@return string[] # the problems, empty when the help agrees with the Core
-local function check(registered, text)
+local function help_check(registered, text)
   local found = named(text)
   local problems = {}
   for _, kind in ipairs(kinds) do
@@ -168,8 +178,12 @@ end
 --- from the Core's list of `setup{}` fields.
 ---@return table<codestyle.test.DocKind, string[]>
 local function registered()
-  return child.lua([[
-    local result = { command = {}, subcommand = {}, plug = {}, key = {} }
+  return child.lua(
+    [[
+    local result = {}
+    for _, kind in ipairs(...) do
+      result[kind] = {}
+    end
     for name in pairs(vim.api.nvim_get_commands({})) do
       if name:find('^Codestyle') then
         table.insert(result.command, name)
@@ -191,27 +205,34 @@ local function registered()
     result.key = vim.tbl_keys(keys)
     result.setup = require('codestyle.setup').fields
     return result
-  ]])
+  ]],
+    { kinds }
+  )
 end
 
 T[':helptags'] = MiniTest.new_set()
 
-T[':helptags']['builds the tags of the help folder with no error'] = function()
+--- Copies the help file into a folder of the case and runs `:helptags` on it
+--- in the child.
+---@return boolean ok, string? err, string dir # the folder that holds `doc/`
+local function build_help_tags()
   local dir = child.paths.root .. '/docs'
   vim.fn.mkdir(dir .. '/doc', 'p')
   vim.fn.writefile(vim.fn.readfile(help_file), dir .. '/doc/codestyle.txt')
-
-  -- A duplicate tag makes `:helptags` fail with E154.
   local ok, err = pcall(child.cmd, 'helptags ' .. dir .. '/doc')
+  return ok, err, dir
+end
+
+T[':helptags']['builds the tags of the help folder with no error'] = function()
+  -- A duplicate tag makes `:helptags` fail with E154.
+  local ok, err = build_help_tags()
 
   expect.equality({ ok, ok or err }, { true, true })
 end
 
 T[':helptags'][':help opens the section of each tag'] = function()
-  local dir = child.paths.root .. '/docs'
-  vim.fn.mkdir(dir .. '/doc', 'p')
-  vim.fn.writefile(vim.fn.readfile(help_file), dir .. '/doc/codestyle.txt')
-  child.cmd('helptags ' .. dir .. '/doc')
+  local ok, err, dir = build_help_tags()
+  expect.equality({ ok, ok or err }, { true, true })
   child.lua('vim.opt.runtimepath:prepend(...)', { dir })
 
   for _, tag in ipairs({ 'codestyle', 'codestyle-conform', 'codestyle-health' }) do
@@ -228,7 +249,7 @@ T['the help file ends with the help modeline'] = function()
 end
 
 T['the help names what the Core registers, and nothing else'] = function()
-  expect.equality(check(registered(), read(help_file)), {})
+  expect.equality(help_check(registered(), read(help_file)), {})
 end
 
 T['the README names nothing that the Core does not register'] = function()
@@ -269,7 +290,7 @@ T['the docs check']['finds a registered name that the help leaves out'] = functi
     '<',
   }, '\n')
 
-  expect.equality(check(core, text), {
+  expect.equality(help_check(core, text), {
     'subcommand arrange is not in the help',
     'plug <Plug>(codestyle-menu) is not in the help',
     'setup keys is not in the help',
@@ -291,7 +312,7 @@ T['the docs check']['finds a name in the help that the Core does not register'] 
     '*codestyle-setup-keys*  `setup{ keys = false, theme = { dark = true } }`',
   }, '\n')
 
-  expect.equality(check(core, text), {
+  expect.equality(help_check(core, text), {
     'command CodestyleInfo is in the help but not registered',
     'subcommand lint is in the help but not registered',
     'subcommand sort is in the help but not registered',
