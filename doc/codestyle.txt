@@ -32,14 +32,13 @@ The Core formats nothing on its own. Each language is a separate Neovim
 plugin, a Language Plugin, that supplies the Options, the Tabs and Preview
 samples of the Menu, and the formatting rules.
 
-To add a language, install its Language Plugin next to the Core, so that it
-is on the 'runtimepath'. With lazy.nvim, list it in the `dependencies` of
-codestyle.nvim. The Core finds it on first use; no `setup()` is needed. The
-README of codestyle.nvim lists the released Language Plugins and their
-parsers.
+A Language Plugin works once it is on the 'runtimepath' next to the Core:
+the Core finds it on first use, and no `setup()` is needed. The README of
+codestyle.nvim tells how to install the Core and its Language Plugins, and
+lists the released Language Plugins and their parsers.
 
-Each Language Plugin has its own help file with the tag `codestyle-<id>`,
-where `<id>` is its language id, such as `:help codestyle-php`. It lists the
+Each Language Plugin has its own help file with the tag |codestyle-<id>|,
+where `<id>` is its language id, such as `:help codestyle-json`. It lists the
 language's filetypes, parsers and Options.
 
 The language `general` is part of the Core. It holds the Options that every
@@ -63,8 +62,8 @@ One warning names both, and `setup{ filetypes = ... }` picks one.
 ==============================================================================
 SETUP                                                        *codestyle-setup*
 
-`setup()` is optional. The Core works with no call, and the call only keeps
-your choices: >lua
+`setup()` is optional. The Core works with no call. Call it from your
+config to keep your choices: >lua
 
     require('codestyle').setup({
       filetypes = { htmldjango = 'twig', xml = false },
@@ -72,7 +71,8 @@ your choices: >lua
       presets = {},
     })
 <
-With lazy.nvim, `opts = { ... }` in the spec of codestyle.nvim calls it.
+Each call replaces the choices of the call before. It also maps or unmaps
+the default key at once, see |codestyle-default-key|.
 
 filetypes                                          *codestyle-setup-filetypes*
     Table of filetype to language id, or to `false`, which turns
@@ -133,9 +133,9 @@ KEYS                                                          *codestyle-keys*
 Default key ~
                                                    *codestyle-default-key*
 The Core maps `<leader>cf` to <Plug>(codestyle-format) in Normal and Visual
-mode at the end of startup, so your 'mapleader' and your own mappings come
-first. It is not mapped when the key is already mapped, or with
-`setup{ keys = false }`.
+mode when you call `setup()`, or at the end of startup when you do not call
+it. So set 'mapleader' before you call `setup()`. The key is not mapped when
+it is already mapped, or with `setup{ keys = false }`.
 
 gq ~
                                                               *codestyle-gq*
@@ -357,6 +357,8 @@ claims, and for each one:
   indents on empty lines" is on, because the trim strips those indents on
   save.
 
-It changes nothing.
+It changes no file, buffer or setting. The one exception: when conform.nvim
+is loaded and does not have the `codestyle` formatter yet, the check adds
+it, as the Core does when conform loads, see |codestyle-conform|.
 
  vim:tw=78:ts=8:ft=help:norl:

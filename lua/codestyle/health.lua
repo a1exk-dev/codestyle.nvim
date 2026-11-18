@@ -2,7 +2,8 @@
 -- Plugin claims, it lists why the buffer is not formatted, and what else
 -- changes its text: other conform formatters, LSP clients that format, and
 -- editorconfig's trim when "Keep indents on empty lines" is on. It changes
--- nothing.
+-- no file, buffer or setting; it only adds the conform formatter when conform
+-- is loaded without it.
 
 ---@class codestyle.Health
 ---@field check fun()
